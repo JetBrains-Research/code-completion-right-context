@@ -7,7 +7,7 @@ from .base_model import BaseModel
 
 
 @annotations_from_parent
-class BiGPT2Model(BaseModel):
+class BiGPTModel(BaseModel):
     def __init__(
             self,
             vocab_size: int,
@@ -31,7 +31,7 @@ class BiGPT2Model(BaseModel):
         is_raw_output : bool
             If True then use as output raw output of transformer gpt.
         """
-        super(BiGPT2Model, self).__init__()
+        super(BiGPTModel, self).__init__()
 
         # both parts has the same amount of parameters
         gpt2_config = transformers.GPT2Config(
@@ -53,12 +53,40 @@ class BiGPT2Model(BaseModel):
     def max_context_length(self):
         return self.gpt.config.n_ctx
 
-    def forward(self, input_tensor, right_to_left_shift: int = 2):
-        reverted_input = torch.flip(input_tensor, dims=(1,))
+    def forward(self, input_tensor, reverted_input_tensor):
+        """
+        Input_tensor and reverted_tensor should be shifted before the forward!
+
+        Parameters
+        ----------
+        input_tensor : torch.tensor
+        reverted_input_tensor : torch.tensor
+        """
+        # apply each of the network separately
+        left_to_right_output = self.gpt_left_to_right.forward(input_tensor)
+        right_to_left_output = self.gpt_right_to_left.forward(reverted_input_tensor)
+
+        # we need to revert right-to-left network before the concat
+        right_to_left_reverted_back_output = torch.flip(
+            right_to_left_output.last_hidden_state,
+            dims=(1,)
+        )
+
+        # concat both network outputs and apply lm head,
+        concated_outputs = torch.cat(
+            (left_to_right_output.last_hidden_state, right_to_left_reverted_back_output),
+            dim=2,
+        )
+        logits = self.lm_head(concated_outputs)
+
+        return logits
+
+    def forward_without_reverted_tensor(self, input_tensor, right_to_left_shift: int = 2):
+        reverted_input_tensor = torch.flip(input_tensor, dims=(1,))
 
         # apply each of the network separately
         left_to_right_output = self.gpt_left_to_right.forward(input_tensor)
-        right_to_left_output = self.gpt_right_to_left.forward(reverted_input)
+        right_to_left_output = self.gpt_right_to_left.forward(reverted_input_tensor)
 
         # we need to revert right-to-left network before the concat
         right_to_left_reverted_back_output = torch.flip(
