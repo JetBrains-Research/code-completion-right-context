@@ -44,14 +44,14 @@ class BiGPTModel(BaseModel):
         )
         self.gpt_left_to_right = transformers.GPT2Model(gpt2_config)
         self.gpt_right_to_left = transformers.GPT2Model(gpt2_config)
-        self.lm_head = nn.Linear(hidden_size * 2, sequence_length)
+        self.lm_head = nn.Linear(hidden_size * 2, vocab_size)
 
         self._sequence_length = sequence_length
         self.is_raw_output = is_raw_output
 
     @property
     def max_context_length(self):
-        return self.gpt.config.n_ctx
+        return self.gpt_left_to_right.config.n_ctx
 
     def forward(self, input_tensor, reverted_input_tensor):
         """
@@ -78,6 +78,10 @@ class BiGPTModel(BaseModel):
             dim=2,
         )
         logits = self.lm_head(concated_outputs)
+
+        # permute output from [batch, seq_len, vocab] to [batch, vocab, seq_len]
+        # it needed for nn.CrossEntropyLoss
+        logits = logits.permute(0, 2, 1)
 
         return logits
 
@@ -108,7 +112,9 @@ class BiGPTModel(BaseModel):
             dim=2,
         )
         logits = self.lm_head(concated_outputs)
-
+        # permute output from [batch, seq_len, vocab] to [batch, vocab, seq_len]
+        # it needed for nn.CrossEntropyLoss
+        logits = logits.permute(0, 2, 1)
         return logits
 
     def get_next_token_scores(self, input_ids, attention_mask=None, past=None, use_cache=None):
