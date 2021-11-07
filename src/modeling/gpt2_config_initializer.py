@@ -4,19 +4,30 @@ from catalyst.utils import load_checkpoint, unpack_checkpoint
 
 from .base_config_initializer import BaseConfigInitializer
 from .gpt2 import GPT2Model
-from .wandb_logger import WandbLogger
+from .bi_gpt2 import BiGPTModel
+# from .wandb_logger import WandbLogger
 
 
 class GPT2ConfigInitializer(BaseConfigInitializer):
     def init_model(self):
-        model = GPT2Model(
-            vocab_size=self.config.VOCAB_SIZE * 1000,
-            sequence_length=self.config.SEQUENCE_LENGTH,
-            head_size=self.config.HEAD_SIZE,
-            n_layers=self.config.N_LAYERS,
-            n_heads=self.config.N_HEADS,
-        )
-
+        if self.config.TYPE_MODEL == 'GPT2':
+            model = GPT2Model(
+                vocab_size=self.config.VOCAB_SIZE * 1000,
+                sequence_length=self.config.SEQUENCE_LENGTH,
+                head_size=self.config.HEAD_SIZE,
+                n_layers=self.config.N_LAYERS,
+                n_heads=self.config.N_HEADS,
+            )
+        elif self.config.TYPE_MODEL == 'BiGPT2':
+            model = BiGPTModel(
+                vocab_size=self.config.VOCAB_SIZE * 1000,
+                sequence_length=self.config.SEQUENCE_LENGTH,
+                hidden_size=self.config.HEAD_SIZE,
+                n_layers=self.config.N_LAYERS,
+                n_heads=self.config.N_HEADS,
+            )
+        else:
+            raise AttributeError('Please set correct attribute "TYPE_MODEL" in config')
         return model
 
     @staticmethod
@@ -51,6 +62,7 @@ class GPT2ConfigInitializer(BaseConfigInitializer):
         return model
 
     def init_logging_callback(self, logdir):
+        return None
         config = self.config
 
         wandb_logger = WandbLogger(

@@ -6,7 +6,10 @@ from ..utils.technical import annotations_from_parent
 from .base_model import BaseModel
 
 
-@annotations_from_parent
+# delete annotations because it raise exception
+# TypeError: different varnames forward: 
+# parent varnames: ['self', 'x'], 
+# child varnames: ['self', 'input_tensor', 'reverted_input_tensor']
 class BiGPTModel(BaseModel):
     def __init__(
             self,
@@ -68,13 +71,13 @@ class BiGPTModel(BaseModel):
 
         # we need to revert right-to-left network before the concat
         right_to_left_reverted_back_output = torch.flip(
-            right_to_left_output.last_hidden_state,
+            right_to_left_output[0],
             dims=(1,)
         )
 
         # concat both network outputs and apply lm head,
         concated_outputs = torch.cat(
-            (left_to_right_output.last_hidden_state, right_to_left_reverted_back_output),
+            (left_to_right_output[0], right_to_left_reverted_back_output),
             dim=2,
         )
         logits = self.lm_head(concated_outputs)
@@ -94,13 +97,13 @@ class BiGPTModel(BaseModel):
 
         # we need to revert right-to-left network before the concat
         right_to_left_reverted_back_output = torch.flip(
-            right_to_left_output.last_hidden_state,
+            right_to_left_output[0],
             dims=(1,)
         )
 
         # shift each of the network
         shifted_left_to_right_output = (
-            left_to_right_output.last_hidden_state[:, :-right_to_left_shift, :]
+            left_to_right_output[0][:, :-right_to_left_shift, :]
         )
         shifted_right_to_left_output = (
             right_to_left_reverted_back_output[:, right_to_left_shift:, :]

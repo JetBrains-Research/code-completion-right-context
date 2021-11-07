@@ -5,10 +5,12 @@ from functools import partial
 
 class Config:
     # global parameters
-    HOME_DIR = '/home/popov'
-    DATA_DIR = '/home/popov/data/rcompletion/tokenized_data_1806'
+    HOME_DIR = '/home/porkhun/model_training/practice/bi_gpt/try_run'
+#     DATA_DIR = '/mnt/data/porkhun/practice/preprocessed_data'
+    DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
     WANDB_GROUP = 'gpt'
     MODEL_NAME = 'gpt2'
+    TYPE_MODEL = 'BiGPT2'  # 'GPT2' or 'BiGPT2'
     CHECKPOINT_PATH = None
 
     # dataset mode
@@ -17,19 +19,20 @@ class Config:
     DATASET_ADDITIONAL_ARGUMENTS = dict()
 
     # tokenizer parameters
-    TOKENIZER = 'bert'
+    TOKENIZER = 'bpe'
     VOCAB_SIZE = 16
 
     # model parameters
     DROPOUT = 0.1
-    N_LAYERS = 4
-    N_HEADS = 8
-    HEAD_SIZE = 256
+    N_LAYERS = 2
+    N_HEADS = 4
+    HEAD_SIZE = 128
 
     # training constant parameters
-    BATCH_SIZE = 128
+    BATCH_SIZE = 64
     SEQUENCE_LENGTH = 512
-    N_EPOCH = 10
+    N_EPOCH = 1
+    NUM_WORKERS = 1
 
     # optimization classes
     # must NOT be initialized here!

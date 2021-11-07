@@ -6,6 +6,8 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import joblib
 
+from .bi_gpt2_dataset import BiGPTDataset
+
 
 class LanguageModelDataset(Dataset):
     def __init__(
@@ -120,7 +122,8 @@ class DatasetLoaderInitializer:
             sequence_length, batch_size, num_workers,
             use_first_n_objects=None,
             train_mode='padding', valid_mode='lm',
-            shuffle_dataset='auto'
+            shuffle_dataset='auto',
+            is_bi_gpt=False
     ):
         """
 
@@ -158,14 +161,15 @@ class DatasetLoaderInitializer:
         }
         self._padding_fn = PaddingCollateFn(max_length=self.sequence_length, batch_first=True)
         self.shuffle_dataset = shuffle_dataset
+        self.is_bi_gpt = is_bi_gpt
 
     def _initialize_datasets_and_loaders_as_chunks(self, data_type):
-        folder_name = f'{self.data_dir}/{data_type}_{self.tokenizer_name}{self.vocab_size}'
+        folder_name = f'{self.data_dir}/{data_type}_{self.tokenizer_name}{self.vocab_size}'        
         dataset = LanguageModelChunkDataset(
             folder_with_chunks=folder_name,
             use_first_n_objects=self.use_first_n_objects,
         )
-
+        
         shuffle = True if data_type == 'train' else False
         loader = DataLoader(
             dataset,
@@ -188,8 +192,9 @@ class DatasetLoaderInitializer:
             shuffle_dataset = True
         else:
             raise TypeError('unknown shuffle_dataset value')
-
-        dataset = LanguageModelDataset(
+        # i change LanguageModelChunkDataset to BiGPTDataset if model is BiGPT
+        ClassOfDataset = BiGPTDataset if self.is_bi_gpt else LanguageModelDataset 
+        dataset = ClassOfDataset(
             text_list=data,
             sequence_length=self.sequence_length,
             reshuffle=shuffle_dataset,

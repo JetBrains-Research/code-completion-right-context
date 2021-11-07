@@ -90,9 +90,9 @@ class BiGPTDataset(Dataset):
         target_tensor = torch.tensor(target_sequence).long()
 
         return {
-            'left_to_right_input': left_to_right_tensor,
-            'right_to_left_tensor': right_to_left_tensor,
-            'target_tensor': target_tensor,
+            'input_tensor': left_to_right_tensor,
+            'reverted_input_tensor': right_to_left_tensor,
+            'targets': target_tensor,
         }
 
     def __len__(self):
