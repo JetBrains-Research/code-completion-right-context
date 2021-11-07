@@ -5,11 +5,11 @@ from functools import partial
 
 class Config:
     # global parameters
-    HOME_DIR = '/home/porkhun/model_training/practice/bi_gpt/try_run'
-#     DATA_DIR = '/mnt/data/porkhun/practice/preprocessed_data'
-    DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
-    WANDB_GROUP = 'gpt'
-    MODEL_NAME = 'gpt2'
+    HOME_DIR = '/home/porkhun/model_training/practice/bi_gpt/30_epoch'
+    DATA_DIR = '/mnt/data/porkhun/practice/preprocessed_data'
+#     DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
+    WANDB_GROUP = 'Rcompletion'
+    MODEL_NAME = 'BiGPT-128'
     TYPE_MODEL = 'BiGPT2'  # 'GPT2' or 'BiGPT2'
     CHECKPOINT_PATH = None
 
@@ -29,9 +29,9 @@ class Config:
     HEAD_SIZE = 128
 
     # training constant parameters
-    BATCH_SIZE = 64
+    BATCH_SIZE = 40
     SEQUENCE_LENGTH = 512
-    N_EPOCH = 1
+    N_EPOCH = 10
     NUM_WORKERS = 1
 
     # optimization classes
