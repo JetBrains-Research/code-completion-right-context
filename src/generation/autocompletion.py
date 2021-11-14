@@ -119,6 +119,11 @@ class AutocompletionModel:
                 self._replaced_variable_str = handler.variable_prefix
 
         self.verbose = verbose
+        if hasattr(self.model, 'double_context') and self.model.double_context:
+            self.double_context = True
+            self.autocomplete_input = self.autocomplete_input_bi_gpt
+        else:
+            self.double_context = False
 
     def _verbose_print(self, text: str, **print_args):
         if self.verbose:
@@ -128,6 +133,7 @@ class AutocompletionModel:
             self,
             input_text: str,
             drop_last_word: str = 'auto',
+            is_reversed: bool = False
     ) -> Tuple[torch.Tensor, List[List[int]], Dict[str, str], Union[str, None]]:
         """
         Parameters
@@ -157,14 +163,19 @@ class AutocompletionModel:
         # TODO: maybe move to preprocesser
         if self._replaced_number_str:
             preprocessing_result['bad_words'] += [self._replaced_number_str]
-
-        ids = self.tokenizer.encode(preprocessing_result['output'], add_eos=True, add_bos=True)
+            
+        ids = self.tokenizer.encode(
+            preprocessing_result['output'][::-1] if is_reversed else preprocessing_result['output'],
+            add_eos=True,
+            add_bos=True
+        )
         bad_word_ids = [
             self.tokenizer.encode(word, add_eos=False, add_bos=False)
             for word in preprocessing_result['bad_words']
         ]
 
         # don't use last token because it is EOS token
+        
         start_index = max(0, len(ids) - 1 - self.model.max_context_length + self.max_tokens_amount)
         ids = (
             torch.tensor(ids[start_index:-1])
@@ -248,7 +259,10 @@ class AutocompletionModel:
             initial_length: int,
     ) -> torch.Tensor:
         assert len(known_prefixes) == len(next_token_log_probs)
-        assert len(known_prefixes) == len(current_ids)
+        if self.double_context:
+            assert len(known_prefixes) == len(current_ids[0])
+        else:
+            assert len(known_prefixes) == len(current_ids)            
 
         bad_word_ids_list = []
         good_word_ids_list = []
@@ -274,7 +288,7 @@ class AutocompletionModel:
         )
 
         return postprocessed_scores
-
+    @torch.no_grad()
     def _update_model_output_state_after_one_step(
             self,
             model_state: ModelOutputState,
@@ -284,20 +298,35 @@ class AutocompletionModel:
     ) -> Tuple[ModelOutputState, bool]:
         if len(next_token_info.token_ids) == 0:
             return model_state, True
-
-        # get temporary version of current ids and beam probabilities
-        tmp_new_ids = torch.cat(
-            [model_state.ids[next_token_info.sequence_ids], next_token_info.token_ids.view(-1, 1)],
-            dim=1,
-        )
+        # get temporary version of current ids and beam probabilities      
+        if isinstance(model_state.ids, tuple):
+            tmp_new_ids = (
+                torch.cat(
+                    [
+                        model_state.ids[0][next_token_info.sequence_ids],
+                        next_token_info.token_ids.view(-1, 1)
+                    ],
+                    dim=1,
+                ),
+                model_state.ids[1]
+            )
+        else:
+            tmp_new_ids = torch.cat(
+                [model_state.ids[next_token_info.sequence_ids], next_token_info.token_ids.view(-1, 1)],
+                dim=1,
+            )
         tmp_new_beam_log_probs = next_token_info.scores
+        
         tmp_new_prefixes = [
             model_state.known_prefixes[i] for i in next_token_info.sequence_ids
         ]
 
         # update output words with probs
         # also update prefixes (because some prefixes cause new output tokens)
-        generated_ids = tmp_new_ids[:, initial_length:]
+        if self.double_context:
+            generated_ids = tmp_new_ids[0][:, initial_length:]
+        else:
+            generated_ids = tmp_new_ids[:, initial_length:]
         ids_to_keep = []
         new_prefixes = []
         for i, one_sequence_ids in enumerate(generated_ids):
@@ -348,7 +377,10 @@ class AutocompletionModel:
             return model_state, True
 
         # update again to decrease the complexity of the next iteration
-        new_ids = tmp_new_ids[ids_to_keep]
+        if self.double_context:
+            new_ids = (tmp_new_ids[0][ids_to_keep], tmp_new_ids[1])
+        else:
+            new_ids = tmp_new_ids[ids_to_keep]
         new_beam_log_probs = tmp_new_beam_log_probs[ids_to_keep]
         next_token_info = NextTokenInfo(
             sequence_ids=next_token_info.sequence_ids[ids_to_keep],
@@ -359,7 +391,11 @@ class AutocompletionModel:
         # update model weights
         if model_state.past_model_weights is not None:
             new_past_model_weights = []
-            for old_layer_weights in model_state.past_model_weights:
+            if self.double_context:
+                model_previous_state = model_state.past_model_weights[0]
+            else:
+                model_previous_state = model_state.past_model_weights
+            for old_layer_weights in model_previous_state:
                 new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
                 new_past_model_weights.append(new_layer_weights)
         else:
@@ -370,7 +406,11 @@ class AutocompletionModel:
             known_prefixes=new_prefixes,
             beam_log_probs=new_beam_log_probs,
             output_word_to_prob=model_state.output_word_to_prob,
-            past_model_weights=new_past_model_weights,
+            past_model_weights=(
+                (new_past_model_weights, model_state.past_model_weights[1])
+                if self.double_context
+                else new_past_model_weights
+            )
         )
 
         return new_model_state, False
@@ -395,15 +435,26 @@ class AutocompletionModel:
         -------
         : dict
         """
-        model_state = ModelOutputState(
-            ids=input_ids,
-            beam_log_probs=torch.zeros(len(input_ids), device=self.model.device),
-            known_prefixes=[known_prefix for _ in range(len(input_ids))],
-            past_model_weights=None,
-            output_word_to_prob=dict(),
-        )
-        initial_length = input_ids.shape[1]
-
+        if self.double_context:
+            model_state = ModelOutputState(
+                ids=input_ids,
+                beam_log_probs=torch.zeros(len(input_ids[0]), device=self.model.device),
+                known_prefixes=[known_prefix for _ in range(len(input_ids[0]))],
+                past_model_weights=(None, None) if self.double_context else None,
+                output_word_to_prob=dict(),
+            )            
+        else:
+            model_state = ModelOutputState(
+                ids=input_ids,
+                beam_log_probs=torch.zeros(len(input_ids), device=self.model.device),
+                known_prefixes=[known_prefix for _ in range(len(input_ids))],
+                past_model_weights=(None, None) if self.double_context else None,
+                output_word_to_prob=dict(),
+            )
+        if isinstance(input_ids, torch.Tensor):
+            initial_length = input_ids.shape[1]
+        else:
+            initial_length = input_ids[0].shape[1]
         for i in range(self.max_tokens_amount):
             next_token_logits, past_model_weights = self._get_next_token_log_probs(
                 current_ids=model_state.ids,
@@ -420,10 +471,11 @@ class AutocompletionModel:
             )
 
             postprocessed_scores = (
-                model_state.beam_log_probs.view(len(model_state.ids), 1) +
-                log_softmax(postprocessed_scores, dim=-1)
+                model_state.beam_log_probs.view(len(
+                    model_state.ids[0] if self.double_context else model_state.ids
+                ), 1) + log_softmax(postprocessed_scores, dim=-1)
             )
-
+            
             next_token_info = self.next_token_chooser.get_next_token_from_scores(
                 postprocessed_scores,
                 num_tokens=self.num_beams * 2,
@@ -582,3 +634,151 @@ class AutocompletionModel:
             return sorted_words_and_probs
         else:
             return [x[0] for x in sorted_words_and_probs]
+        
+        
+        
+    def autocomplete_input_bi_gpt(
+            self,
+            input_text: tuple,
+            return_probs: bool = False,
+            drop_last_word: str = 'auto',
+    ) -> Union[List[str], List[Tuple[str, float]]]:
+        assert len(input_text) == 2
+        left_text, right_text = input_text
+        # left model
+        (
+            left_ids,
+            bad_word_ids,
+            left_old_name_to_new,
+            left_last_token
+        ) = self._preprocess_data(
+            input_text=left_text,
+            drop_last_word=drop_last_word,
+        )
+        
+        # right model
+        (
+            right_ids,
+            right_bad_word_ids,
+            right_old_name_to_new,
+            right_last_token
+        ) = self._preprocess_data(
+            input_text=right_text,
+            drop_last_word=drop_last_word,
+        )
+        
+        # add to bad_word_ids right ids
+        for ids in right_bad_word_ids:
+            if ids not in bad_word_ids:
+                bad_word_ids.append(ids)
+                
+        # union of left_old_name_to_new and right_old_name_to_new
+        old_name_to_new = AutocompletionModel.join_old_to_new_names(
+            left_old_name_to_new,
+            right_old_name_to_new
+        )
+  
+        
+        # left model
+        left_known_prefix_text = left_last_token
+        
+        # right model        
+        right_known_prefix_text = right_last_token
+
+        # left model        
+        left_preprocessed_prefix = (
+            self._preprocess_input_prefix(
+                left_known_prefix_text,
+                left_text,
+                old_name_to_new=old_name_to_new,
+            )
+            if left_known_prefix_text is not None
+            else None
+        )
+        # right model
+        right_preprocessed_prefix = (
+            self._preprocess_input_prefix(
+                right_known_prefix_text,
+                right_text,
+                old_name_to_new=old_name_to_new,
+            )
+            if right_known_prefix_text is not None
+            else None
+        )    
+        # add loop in left amd right prefixes
+        for preprocessed_prefix in [left_preprocessed_prefix, right_preprocessed_prefix]:
+            if preprocessed_prefix is not None:
+                need_to_add_stop_words = (
+                    self._replaced_variable_str and
+                    self._replaced_variable_str.startswith(left_preprocessed_prefix.text)
+                )
+                if need_to_add_stop_words:
+                    bad_words_for_replaced_vars = [
+                        new_var
+                        for old_var, new_var in old_name_to_new.items()
+                        if not old_var.lower().startswith(preprocessed_prefix.text)
+                    ]
+                    bad_word_ids_for_replaced_vars = [
+                        self.tokenizer.encode(word, add_eos=False, add_bos=False)
+                        for word in bad_words_for_replaced_vars
+                    ]
+                    bad_word_ids += bad_word_ids_for_replaced_vars
+                    
+                    
+        self._verbose_print(f'initial left_ids shape: {left_ids.shape}')
+        self._verbose_print(f'initial prefix: {left_preprocessed_prefix}')
+        self._verbose_print(f'initial input_ids shape: {right_ids.shape}')
+        self._verbose_print(f'initial prefix: {right_preprocessed_prefix}')
+        self._verbose_print(f'old_name_to_new dict: {old_name_to_new}')
+
+        
+        if (
+            left_ids.shape == torch.Size([1, 1]) or right_ids.shape == torch.Size([1, 1])
+        ) and (
+            left_preprocessed_prefix is None or right_preprocessed_prefix is None
+        ):
+            sorted_words = [
+                'library', 'knitr', 'context', 'setwd', 'rm',
+                'source', 'require', 'install.packages', 'options', 'data'
+            ]
+            sorted_words_and_probs = list(zip(sorted_words, [0.1] * 10))
+        else:
+            output_word_to_prob = self._generate_next_token_ids(
+                input_ids=(left_ids, right_ids),
+                bad_word_ids=bad_word_ids,
+                old_name_to_new=old_name_to_new,
+                known_prefix=preprocessed_prefix,
+            )
+
+            self._verbose_print(f'before postprocess output_word_to_prob: {output_word_to_prob}')
+            sorted_words_and_probs = self._postprocess_output_list(
+                words_and_probs=output_word_to_prob.items(),
+                preprocessed_prefix=preprocessed_prefix,
+                old_name_to_new=old_name_to_new,
+            )
+            self._verbose_print(f'after postprocess output_word_to_prob: {sorted_words_and_probs}')
+
+        if return_probs:
+            sorted_words_and_probs = [(x[0], np.exp(x[1])) for x in sorted_words_and_probs]
+            return sorted_words_and_probs
+        else:
+            return [x[0] for x in sorted_words_and_probs]        
+        
+    @staticmethod
+    def join_old_to_new_names(*args: Tuple[Dict[str, str]]) -> Dict[str, str]:
+        resulting_mapping_vars = args[0]
+        if resulting_mapping_vars:
+            last_index = max(int(x[3:].strip()) for x in resulting_mapping_vars.values() if x.startswith('var'))
+        else:
+            last_index = 0
+        for i in range(1, len(args)):
+            current_dict = args[i]
+            for key in current_dict:
+                if key in resulting_mapping_vars.keys():
+                    continue
+                elif key.startswith('key'):
+                    resulting_mapping_vars[key] = 'var' + str(last_index + 1)
+                    last_index += 1
+                else:
+                    resulting_mapping_vars[key] = current_dict[key]
+        return resulting_mapping_vars

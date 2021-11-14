@@ -101,7 +101,11 @@ class TokenScoresPostprocessor:
         if self.temperature != 1.0:
             scores /= self.temperature
         if self.penalty_theta != 1.0:
-            generated_tokens = input_ids[:, initial_length:]
+            generated_tokens = (
+                input_ids[0][:, initial_length:] 
+                if isinstance(input_ids, tuple) 
+                else input_ids[:, initial_length:]
+            )
             for i, sequence in enumerate(generated_tokens):
                 scores[i, sequence] /= self.penalty_theta
 
@@ -114,12 +118,18 @@ class TokenScoresPostprocessor:
                 continue
 
             if sequence_bad_word_ids is not None:
-                banned_ids = self._calc_list_compatible_ids(input_ids[i], sequence_bad_word_ids)
+                if isinstance(input_ids, tuple):
+                    banned_ids = self._calc_list_compatible_ids(input_ids[0][i], sequence_bad_word_ids)
+                else:
+                    banned_ids = self._calc_list_compatible_ids(input_ids[i], sequence_bad_word_ids)                    
                 scores[i, banned_ids] = -float('inf')
 
             if sequence_good_word_ids is not None:
                 # calculate a list of not-banned tokens according to good words
-                protected_ids = self._calc_list_compatible_ids(input_ids[i], sequence_good_word_ids)
+                if isinstance(input_ids, tuple):
+                    protected_ids = self._calc_list_compatible_ids(input_ids[0][i], sequence_good_word_ids)
+                else:
+                    protected_ids = self._calc_list_compatible_ids(input_ids[i], sequence_good_word_ids)                    
                 banned_ids = torch.tensor(list(
                     possible_id_set
                     .difference(protected_ids)
@@ -174,6 +184,7 @@ class NextTokenChooser:
                 sequence_max_samples=sequence_max_samples,
             )
         else:
+            
             if sequence_max_samples is None:
                 next_token_info = self._get_next_token_no_sampling_no_sequence_restriction(
                     scores=scores,
@@ -185,7 +196,6 @@ class NextTokenChooser:
                     num_tokens=num_tokens,
                     sequence_max_samples=sequence_max_samples,
                 )
-
         no_inf_mask = next_token_info.scores > -float('inf')
         next_token_info_without_inf = NextTokenInfo(
             sequence_ids=next_token_info.sequence_ids[no_inf_mask],

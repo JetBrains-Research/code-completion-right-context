@@ -1,3 +1,5 @@
+from typing import Tuple, Union
+
 import torch
 import torch.nn as nn
 import transformers
@@ -51,6 +53,7 @@ class BiGPTModel(BaseModel):
 
         self._sequence_length = sequence_length
         self.is_raw_output = is_raw_output
+        self.double_context = True
 
     @property
     def max_context_length(self):
@@ -119,11 +122,64 @@ class BiGPTModel(BaseModel):
         # it needed for nn.CrossEntropyLoss
         logits = logits.permute(0, 2, 1)
         return logits
+    
+    @torch.no_grad()
+    def get_next_token_scores(
+        self,
+        input_ids: Tuple[torch.Tensor],
+        attention_mask: Tuple[Union[torch.Tensor, None]] = (None, None),
+        past: Tuple[Union[torch.Tensor, None]] = (None, None),
+        use_cache = None
+    ):
+        # all parameters be a tuple for two net
+        input_left_to_right, input_right_to_left = input_ids
+        attention_left_to_right, attention_right_to_left = attention_mask
+        past_left_to_right, past_right_to_left = past
+        
+        if past_left_to_right is not None:
+            input_left_to_right = input_left_to_right[:, -1].unsqueeze(-1)
+            
+        if past_right_to_left is not None:            
+            input_right_to_left = input_right_to_left[:, -1].unsqueeze(-1)
 
-    def get_next_token_scores(self, input_ids, attention_mask=None, past=None, use_cache=None):
-        raise TypeError
+        # forward left to right model
+        output_left_to_right = self.gpt_left_to_right(
+            input_ids=input_left_to_right,
+            attention_mask=attention_left_to_right,
+            past=past_left_to_right,
+            use_cache=use_cache            
+        )
+        
+        hidden_left_to_right = output_left_to_right[0][:, -1, :]
+        
+        # forward right to left model        
+        output_right_to_left = self.gpt_right_to_left(
+            input_ids=input_right_to_left,
+            attention_mask=attention_right_to_left,
+            past=past_right_to_left,
+            use_cache=use_cache            
+        )
+        hidden_right_to_left = output_right_to_left[0][:, -1, :]
+
+        hidden_states = torch.cat(
+            (
+                hidden_left_to_right,
+                hidden_right_to_left.repeat(hidden_left_to_right.size(0), 1)
+            ),
+            dim=1,
+        )
+
+        logits = self.lm_head(hidden_states)
+
+        if use_cache:
+            new_past = (output_left_to_right[1], output_right_to_left[1])
+        else:
+            new_past = None
+            
+        return logits, new_past
 
     @property
     def device(self):
         some_weights = next(iter(self.parameters()))
         return some_weights.device
+
