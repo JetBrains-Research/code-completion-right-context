@@ -133,6 +133,7 @@ class BiGPTModel(BaseModel):
     ):
         # all parameters be a tuple for two net
         input_left_to_right, input_right_to_left = input_ids
+        
         attention_left_to_right, attention_right_to_left = attention_mask
         past_left_to_right, past_right_to_left = past
         
@@ -172,7 +173,7 @@ class BiGPTModel(BaseModel):
         logits = self.lm_head(hidden_states)
 
         if use_cache:
-            new_past = (output_left_to_right[1], output_right_to_left[1])
+            new_past = (output_left_to_right[1], None) #output_right_to_left[1])
         else:
             new_past = None
             

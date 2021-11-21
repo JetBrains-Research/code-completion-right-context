@@ -1,6 +1,8 @@
 import os
 import json
 
+from random import choice
+
 import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
@@ -15,7 +17,7 @@ class BiGPTDataset(Dataset):
             sequence_length=512,
             batch_first=False,
             use_first_n_objects=None,
-            right_to_left_model_shift=2,
+            right_to_left_model_shifts=[2],
     ):
         """
 
@@ -32,7 +34,7 @@ class BiGPTDataset(Dataset):
             Sequence length.
         batch_first : bool
         use_first_n_objects : int or None
-        right_to_left_model_shift : int, default = 2
+        right_to_left_model_shift : list, default = [2]
             Shift of the right_to_left model.
         """
         super(BiGPTDataset, self).__init__()
@@ -41,8 +43,8 @@ class BiGPTDataset(Dataset):
         if text is None and text_list is None:
             raise TypeError('one of the arguments text and text_list must be specifed')
 
-        if right_to_left_model_shift < 2:
-            raise TypeError(f'right_to_left_model_shift must be greater than 2')
+        if len(right_to_left_model_shifts) < 0 or any(x < 2 for x in right_to_left_model_shifts):
+            raise TypeError(f'All values in right_to_left_model_shift must be greater than 2. You give {right_to_left_model_shifts}')
 
         self.sequence_length = sequence_length
         self.batch_first = batch_first
@@ -56,7 +58,7 @@ class BiGPTDataset(Dataset):
             if use_first_n_objects is not None:
                 text = text[:sequence_length * use_first_n_objects]
             self.text = text
-        self.right_to_left_model_shift = right_to_left_model_shift
+        self.right_to_left_model_shifts = right_to_left_model_shifts
 
     def _reset_text(self):
         token_indexes = np.random.permutation(len(self.text_list))
@@ -72,12 +74,15 @@ class BiGPTDataset(Dataset):
             if self._getitem_counter >= len(self):
                 self._reset_text()
             self._getitem_counter += 1
-
+            
+        # get random shift from sequence
+        random_shift = choice(self.right_to_left_model_shifts)
+        
         left_to_right_first_index = i * self.sequence_length
         left_to_right_last_index = left_to_right_first_index + self.sequence_length
         left_to_right_text = self.text[left_to_right_first_index:left_to_right_last_index]
 
-        right_to_left_first_index = i * self.sequence_length + self.right_to_left_model_shift
+        right_to_left_first_index = i * self.sequence_length + random_shift
         right_to_left_last_index = right_to_left_first_index + self.sequence_length
         right_to_left_text = self.text[right_to_left_first_index:right_to_left_last_index]
 
@@ -98,5 +103,3 @@ class BiGPTDataset(Dataset):
     def __len__(self):
         # always drop the last to get equal length sequences
         return len(self.text) // self.sequence_length - 1
-
-

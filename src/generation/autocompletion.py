@@ -378,7 +378,7 @@ class AutocompletionModel:
 
         # update again to decrease the complexity of the next iteration
         if self.double_context:
-            new_ids = (tmp_new_ids[0][ids_to_keep], tmp_new_ids[1])
+            new_ids = (tmp_new_ids[0][ids_to_keep], model_state.ids[1])
         else:
             new_ids = tmp_new_ids[ids_to_keep]
         new_beam_log_probs = tmp_new_beam_log_probs[ids_to_keep]
@@ -400,7 +400,7 @@ class AutocompletionModel:
                 new_past_model_weights.append(new_layer_weights)
         else:
             new_past_model_weights = None
-
+        
         new_model_state = ModelOutputState(
             ids=new_ids,
             known_prefixes=new_prefixes,
@@ -435,26 +435,17 @@ class AutocompletionModel:
         -------
         : dict
         """
-        if self.double_context:
-            model_state = ModelOutputState(
-                ids=input_ids,
-                beam_log_probs=torch.zeros(len(input_ids[0]), device=self.model.device),
-                known_prefixes=[known_prefix for _ in range(len(input_ids[0]))],
-                past_model_weights=(None, None) if self.double_context else None,
-                output_word_to_prob=dict(),
-            )            
-        else:
-            model_state = ModelOutputState(
-                ids=input_ids,
-                beam_log_probs=torch.zeros(len(input_ids), device=self.model.device),
-                known_prefixes=[known_prefix for _ in range(len(input_ids))],
-                past_model_weights=(None, None) if self.double_context else None,
-                output_word_to_prob=dict(),
-            )
-        if isinstance(input_ids, torch.Tensor):
-            initial_length = input_ids.shape[1]
-        else:
-            initial_length = input_ids[0].shape[1]
+        model_state = ModelOutputState(
+            ids=input_ids,
+            beam_log_probs=torch.zeros(
+                len(input_ids[0] if self.double_context else input_ids), device=self.model.device
+            ),
+            known_prefixes=[known_prefix for _ in range(len(input_ids[0]))],
+            past_model_weights=(None, None) if self.double_context else None,
+            output_word_to_prob=dict(),
+        )
+        initial_length = input_ids[0].shape[1] if self.double_context else input_ids.shape[1]
+        
         for i in range(self.max_tokens_amount):
             next_token_logits, past_model_weights = self._get_next_token_log_probs(
                 current_ids=model_state.ids,
@@ -665,6 +656,8 @@ class AutocompletionModel:
         ) = self._preprocess_data(
             input_text=right_text,
             drop_last_word=drop_last_word,
+            is_reversed=True
+            
         )
         
         # add to bad_word_ids right ids
@@ -677,12 +670,11 @@ class AutocompletionModel:
             left_old_name_to_new,
             right_old_name_to_new
         )
-  
         
         # left model
         left_known_prefix_text = left_last_token
         
-        # right model        
+        # right model
         right_known_prefix_text = right_last_token
 
         # left model        

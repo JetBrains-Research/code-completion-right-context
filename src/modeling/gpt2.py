@@ -60,7 +60,7 @@ class GPT2Model(BaseModel):
     def get_next_token_scores(self, input_ids, attention_mask=None, past=None, use_cache=None):
         # only last token is needed
         if past:
-            input_ids = input_ids[:, -1].unsqueeze(-1)
+            input_ids = input_ids[:, -1].unsqueeze(-1)         
 
         transformer_outputs = self.gpt.transformer(
             input_ids=input_ids,

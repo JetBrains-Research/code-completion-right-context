@@ -133,6 +133,7 @@ class PrefixMatcher:
         new_token = self._tokenizer.id_to_token[new_token_id]
         if len(new_token) >= len(prefix.text):
             if new_token[:len(prefix.text)] != prefix.text:
+                print(new_token[:len(prefix.text)], prefix.text)
                 raise TypeError("Token doesn't satisfy prefix")
             return None
 

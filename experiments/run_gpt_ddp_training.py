@@ -75,6 +75,45 @@ if __name__ == '__main__':
         
     runner = runner_initializer(**extra_runner_parameters)
     
+    config = {
+        'model_name': Config.MODEL_NAME,
+        'sequence_length': Config.SEQUENCE_LENGTH,
+        'tokenizer': Config.TOKENIZER,
+        'num_epochs': Config.N_EPOCH,
+        'batch_size': Config.BATCH_SIZE,
+        'h_size': Config.HEAD_SIZE,
+        'n_heads': Config.N_HEADS,
+        'vocab_size': Config.VOCAB_SIZE,
+        'n_layers': Config.N_LAYERS,
+        'dropout': Config.DROPOUT,
+        'optim': (
+            Config.OPTIMIZER_NAME if hasattr(Config, 'OPTIMIZER_NAME')
+            else str(Config.OPTIMIZER_CLASS)
+        ),
+        **{
+            f'optim_{key}': f'{value}'
+            for key, value in Config.OPTIMIZER_ADDITIONAL_ARGUMENTS.items()
+        },
+        'max_norm': Config.MAX_NORM,
+        'accumulation_steps': Config.ACCUMULATION_STEPS,
+        'scheduler': (
+            Config.SCHEDULER_NAME if hasattr(Config, 'SCHEDULER_NAME')
+            else str(Config.SCHEDULER_CLASS)
+        ),
+        **{
+            f'scheduler_{key}': f'{value}'
+            for key, value in Config.SCHEDULER_ADDITIONAL_ARGUMENTS.items()
+        },
+        'distributed_mode': Config.use_distributed_mode,
+        'config_name': Config.config_name,
+        'logdir': Config.HOME_DIR,
+        'num_workers': Config.NUM_WORKERS,
+    }
+    
+    logger = None  # dl.WandbLogger(project=Config.WANDB_GROUP, name=Config.MODEL_NAME)
+    if logger is not None:
+        logger.log_hparams(hparams=config)
+    
     runner.train(
         model=training_parameters['model'],
         criterion=training_parameters['criterion'],
@@ -87,6 +126,6 @@ if __name__ == '__main__':
         ddp=Config.use_distributed_mode,
         callbacks=training_parameters['callbacks'],
         verbose=True,
-        loggers={"wandb": dl.WandbLogger(project=Config.WANDB_GROUP, name=Config.MODEL_NAME)},
+        loggers=({"wandb": logger} if logger is not None else None),
         **extra_runner_train_parameters
     )
