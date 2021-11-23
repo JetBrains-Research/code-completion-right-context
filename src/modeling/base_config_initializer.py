@@ -116,11 +116,11 @@ class BaseConfigInitializer:
             optimizer_callback = catalyst_callbacks.OptimizerCallback(
                 metric_key="loss",
                 accumulation_steps=config.ACCUMULATION_STEPS,
-#                 grad_clip_params={
-#                     "func": "clip_grad_norm_",
-#                     "max_norm": config.MAX_NORM,
-#                     "norm_type": 2
-#                 }
+                grad_clip_fn="clip_grad_norm_",
+                grad_clip_params={
+                    "max_norm": config.MAX_NORM,
+                    "norm_type": 2
+                }
             )
         else:
             optimizer_callback = catalyst_callbacks.OptimizerCallback(
@@ -153,7 +153,6 @@ class BaseConfigInitializer:
         callbacks : list of catalyst callbacks
         """
         callbacks = self._init_base_callbacks()
-#         callbacks.append(self.init_logging_callback(logdir))
         return callbacks
 
     def _unpack_checkpoint(self, model, criterion, optimizer):
