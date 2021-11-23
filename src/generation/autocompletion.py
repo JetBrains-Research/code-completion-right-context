@@ -165,10 +165,16 @@ class AutocompletionModel:
             preprocessing_result['bad_words'] += [self._replaced_number_str]
             
         ids = self.tokenizer.encode(
-            preprocessing_result['output'][::-1] if is_reversed else preprocessing_result['output'],
+            preprocessing_result['output'],
             add_eos=True,
             add_bos=True
         )
+        if is_reversed:
+            # it is trade of for inverse model seq starts with bos and end with eos
+            # indexes inverse for other tokens 
+            bos_token = ids[0]
+            eos_token = ids[-1]
+            ids = [bos_token] + ids[1:-1][::-1] + [eos_token]
         bad_word_ids = [
             self.tokenizer.encode(word, add_eos=False, add_bos=False)
             for word in preprocessing_result['bad_words']
