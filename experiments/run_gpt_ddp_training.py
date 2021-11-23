@@ -110,7 +110,7 @@ if __name__ == '__main__':
         'num_workers': Config.NUM_WORKERS,
     }
     
-    logger = None  # dl.WandbLogger(project=Config.WANDB_GROUP, name=Config.MODEL_NAME)
+    logger = None # dl.WandbLogger(project=Config.WANDB_GROUP, name=Config.MODEL_NAME)
     if logger is not None:
         logger.log_hparams(hparams=config)
     
