@@ -178,9 +178,3 @@ class BiGPTModel(BaseModel):
             new_past = None
             
         return logits, new_past
-
-    @property
-    def device(self):
-        some_weights = next(iter(self.parameters()))
-        return some_weights.device
-

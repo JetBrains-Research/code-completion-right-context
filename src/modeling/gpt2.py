@@ -80,11 +80,6 @@ class GPT2Model(BaseModel):
 
         return logits, new_past
 
-    @property
-    def device(self):
-        some_weights = next(iter(self.parameters()))
-        return some_weights.device
-
 
 def load_weights_from_adaptive_to_base(destination_model, adaptive_model):
     apadtive_model_gpt_state_dict = adaptive_model.gpt.state_dict()
