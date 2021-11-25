@@ -296,6 +296,7 @@ class AutocompletionModel:
         )
 
         return postprocessed_scores
+
     @torch.no_grad()
     def _update_model_output_state_after_one_step(
             self,
@@ -389,6 +390,7 @@ class AutocompletionModel:
             new_ids = (tmp_new_ids[0][ids_to_keep], model_state.ids[1])
         else:
             new_ids = tmp_new_ids[ids_to_keep]
+
         new_beam_log_probs = tmp_new_beam_log_probs[ids_to_keep]
         next_token_info = NextTokenInfo(
             sequence_ids=next_token_info.sequence_ids[ids_to_keep],
@@ -397,7 +399,12 @@ class AutocompletionModel:
         )
 
         # update model weights
-        if model_state.past_model_weights is not None:
+        need_to_update_weights = (
+            model_state.past_model_weights is not None and
+            model_state.past_model_weights is not (None, None)
+        )
+
+        if need_to_update_weights:
             new_past_model_weights = []
             if self.double_context:
                 model_previous_state = model_state.past_model_weights[0]
@@ -408,8 +415,7 @@ class AutocompletionModel:
                 new_past_model_weights.append(new_layer_weights)
         else:
             new_past_model_weights = None
-        new_past_model_weights = None
-    
+
         new_model_state = ModelOutputState(
             ids=new_ids,
             known_prefixes=new_prefixes,
@@ -460,7 +466,6 @@ class AutocompletionModel:
                 current_ids=model_state.ids,
                 past_model_weights=model_state.past_model_weights,
             )
-            #model_state.past_model_weights = (None, None)
             model_state.past_model_weights = past_model_weights
 
             postprocessed_scores = self._postprocess_next_token_log_probs(
