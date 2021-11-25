@@ -133,7 +133,8 @@ class AutocompletionModel:
             self,
             input_text: str,
             drop_last_word: str = 'auto',
-            is_reversed: bool = False
+            is_reversed: bool = False,
+            reset: bool = True,
     ) -> Tuple[torch.Tensor, List[List[int]], Dict[str, str], Union[str, None]]:
         """
         Parameters
@@ -159,6 +160,7 @@ class AutocompletionModel:
             return_meta_info=True,
             drop_last_word=drop_last_word,
             lines_to_keep=self.input_lines_to_keep,
+            reset=reset,
         )
         # TODO: maybe move to preprocesser
         if self._replaced_number_str:
@@ -250,8 +252,10 @@ class AutocompletionModel:
         with torch.no_grad():
             next_token_log_probs, past_model_weights = self.model.get_next_token_scores(
                 input_ids=current_ids,
-                past=past_model_weights,
-                use_cache=True,
+                #past=past_model_weights,
+                #use_cache=True,
+                past=(None, None),
+                use_cache=False,
             )
 
         return next_token_log_probs, past_model_weights
@@ -395,18 +399,19 @@ class AutocompletionModel:
         )
 
         # update model weights
-        if model_state.past_model_weights is not None:
-            new_past_model_weights = []
-            if self.double_context:
-                model_previous_state = model_state.past_model_weights[0]
-            else:
-                model_previous_state = model_state.past_model_weights
-            for old_layer_weights in model_previous_state:
-                new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
-                new_past_model_weights.append(new_layer_weights)
-        else:
-            new_past_model_weights = None
-        
+#         if model_state.past_model_weights is not None:
+#             new_past_model_weights = []
+#             if self.double_context:
+#                 model_previous_state = model_state.past_model_weights[0]
+#             else:
+#                 model_previous_state = model_state.past_model_weights
+#             for old_layer_weights in model_previous_state:
+#                 new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
+#                 new_past_model_weights.append(new_layer_weights)
+#         else:
+#             new_past_model_weights = None
+        new_past_model_weights = None
+    
         new_model_state = ModelOutputState(
             ids=new_ids,
             known_prefixes=new_prefixes,
@@ -457,7 +462,7 @@ class AutocompletionModel:
                 current_ids=model_state.ids,
                 past_model_weights=model_state.past_model_weights,
             )
-            model_state.past_model_weights = past_model_weights
+            model_state.past_model_weights = (None, None)#past_model_weights
 
             postprocessed_scores = self._postprocess_next_token_log_probs(
                 next_token_log_probs=next_token_logits,
@@ -651,6 +656,7 @@ class AutocompletionModel:
         ) = self._preprocess_data(
             input_text=left_text,
             drop_last_word=drop_last_word,
+            reset=True,
         )
         
         # right model
@@ -661,15 +667,15 @@ class AutocompletionModel:
             right_last_token
         ) = self._preprocess_data(
             input_text=right_text,
-            drop_last_word=drop_last_word,
-            is_reversed=True
-            
+            drop_last_word='never',
+            is_reversed=True,
+            reset=False,
         )
         
         # add to bad_word_ids right ids
-        for ids in right_bad_word_ids:
-            if ids not in bad_word_ids:
-                bad_word_ids.append(ids)
+#         for ids in right_bad_word_ids:
+#             if ids not in bad_word_ids:
+#                 bad_word_ids.append(ids)
                 
         # union of left_old_name_to_new and right_old_name_to_new
         old_name_to_new = AutocompletionModel.join_old_to_new_names(
@@ -681,7 +687,7 @@ class AutocompletionModel:
         left_known_prefix_text = left_last_token
         
         # right model
-        right_known_prefix_text = right_last_token
+        #right_known_prefix_text = right_last_token
 
         # left model        
         left_preprocessed_prefix = (
@@ -694,46 +700,45 @@ class AutocompletionModel:
             else None
         )
         # right model
-        right_preprocessed_prefix = (
-            self._preprocess_input_prefix(
-                right_known_prefix_text,
-                right_text,
-                old_name_to_new=old_name_to_new,
-            )
-            if right_known_prefix_text is not None
-            else None
-        )    
+#         right_preprocessed_prefix = (
+#             self._preprocess_input_prefix(
+#                 right_known_prefix_text,
+#                 right_text,
+#                 old_name_to_new=old_name_to_new,
+#             )
+#             if right_known_prefix_text is not None
+#             else None
+#         )    
         # add loop in left amd right prefixes
-        for preprocessed_prefix in [left_preprocessed_prefix, right_preprocessed_prefix]:
-            if preprocessed_prefix is not None:
-                need_to_add_stop_words = (
-                    self._replaced_variable_str and
-                    self._replaced_variable_str.startswith(left_preprocessed_prefix.text)
-                )
-                if need_to_add_stop_words:
-                    bad_words_for_replaced_vars = [
-                        new_var
-                        for old_var, new_var in old_name_to_new.items()
-                        if not old_var.lower().startswith(preprocessed_prefix.text)
-                    ]
-                    bad_word_ids_for_replaced_vars = [
-                        self.tokenizer.encode(word, add_eos=False, add_bos=False)
-                        for word in bad_words_for_replaced_vars
-                    ]
-                    bad_word_ids += bad_word_ids_for_replaced_vars
+        if left_preprocessed_prefix is not None:
+            need_to_add_stop_words = (
+                self._replaced_variable_str and
+                self._replaced_variable_str.startswith(left_preprocessed_prefix.text)
+            )
+            if need_to_add_stop_words:
+                bad_words_for_replaced_vars = [
+                    new_var
+                    for old_var, new_var in old_name_to_new.items()
+                    if not old_var.lower().startswith(left_preprocessed_prefix.text)
+                ]
+                bad_word_ids_for_replaced_vars = [
+                    self.tokenizer.encode(word, add_eos=False, add_bos=False)
+                    for word in bad_words_for_replaced_vars
+                ]
+                bad_word_ids += bad_word_ids_for_replaced_vars
                     
                     
         self._verbose_print(f'initial left_ids shape: {left_ids.shape}')
         self._verbose_print(f'initial prefix: {left_preprocessed_prefix}')
         self._verbose_print(f'initial input_ids shape: {right_ids.shape}')
-        self._verbose_print(f'initial prefix: {right_preprocessed_prefix}')
+        #self._verbose_print(f'initial prefix: {right_preprocessed_prefix}')
         self._verbose_print(f'old_name_to_new dict: {old_name_to_new}')
 
         
         if (
-            left_ids.shape == torch.Size([1, 1]) or right_ids.shape == torch.Size([1, 1])
+            left_ids.shape == torch.Size([1, 1])
         ) and (
-            left_preprocessed_prefix is None or right_preprocessed_prefix is None
+            left_preprocessed_prefix is None
         ):
             sorted_words = [
                 'library', 'knitr', 'context', 'setwd', 'rm',
@@ -745,13 +750,13 @@ class AutocompletionModel:
                 input_ids=(left_ids, right_ids),
                 bad_word_ids=bad_word_ids,
                 old_name_to_new=old_name_to_new,
-                known_prefix=preprocessed_prefix,
+                known_prefix=left_preprocessed_prefix,
             )
 
             self._verbose_print(f'before postprocess output_word_to_prob: {output_word_to_prob}')
             sorted_words_and_probs = self._postprocess_output_list(
                 words_and_probs=output_word_to_prob.items(),
-                preprocessed_prefix=preprocessed_prefix,
+                preprocessed_prefix=left_preprocessed_prefix,
                 old_name_to_new=old_name_to_new,
             )
             self._verbose_print(f'after postprocess output_word_to_prob: {sorted_words_and_probs}')
