@@ -252,10 +252,8 @@ class AutocompletionModel:
         with torch.no_grad():
             next_token_log_probs, past_model_weights = self.model.get_next_token_scores(
                 input_ids=current_ids,
-                #past=past_model_weights,
-                #use_cache=True,
-                past=(None, None),
-                use_cache=False,
+                past=past_model_weights,
+                use_cache=True,
             )
 
         return next_token_log_probs, past_model_weights
@@ -399,17 +397,17 @@ class AutocompletionModel:
         )
 
         # update model weights
-#         if model_state.past_model_weights is not None:
-#             new_past_model_weights = []
-#             if self.double_context:
-#                 model_previous_state = model_state.past_model_weights[0]
-#             else:
-#                 model_previous_state = model_state.past_model_weights
-#             for old_layer_weights in model_previous_state:
-#                 new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
-#                 new_past_model_weights.append(new_layer_weights)
-#         else:
-#             new_past_model_weights = None
+        if model_state.past_model_weights is not None:
+            new_past_model_weights = []
+            if self.double_context:
+                model_previous_state = model_state.past_model_weights[0]
+            else:
+                model_previous_state = model_state.past_model_weights
+            for old_layer_weights in model_previous_state:
+                new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
+                new_past_model_weights.append(new_layer_weights)
+        else:
+            new_past_model_weights = None
         new_past_model_weights = None
     
         new_model_state = ModelOutputState(
@@ -462,7 +460,8 @@ class AutocompletionModel:
                 current_ids=model_state.ids,
                 past_model_weights=model_state.past_model_weights,
             )
-            model_state.past_model_weights = (None, None)#past_model_weights
+            #model_state.past_model_weights = (None, None)
+            model_state.past_model_weights = past_model_weights
 
             postprocessed_scores = self._postprocess_next_token_log_probs(
                 next_token_log_probs=next_token_logits,
