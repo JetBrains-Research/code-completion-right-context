@@ -675,23 +675,12 @@ class AutocompletionModel:
             is_reversed=True,
             reset=False,
         )
-        
-        # add to bad_word_ids right ids
-#         for ids in right_bad_word_ids:
-#             if ids not in bad_word_ids:
-#                 bad_word_ids.append(ids)
-                
+
         # union of left_old_name_to_new and right_old_name_to_new
-        old_name_to_new = AutocompletionModel.join_old_to_new_names(
-            left_old_name_to_new,
-            right_old_name_to_new
-        )
-        
+        old_name_to_new = left_old_name_to_new
+
         # left model
         left_known_prefix_text = left_last_token
-        
-        # right model
-        #right_known_prefix_text = right_last_token
 
         # left model        
         left_preprocessed_prefix = (
@@ -703,16 +692,7 @@ class AutocompletionModel:
             if left_known_prefix_text is not None
             else None
         )
-        # right model
-#         right_preprocessed_prefix = (
-#             self._preprocess_input_prefix(
-#                 right_known_prefix_text,
-#                 right_text,
-#                 old_name_to_new=old_name_to_new,
-#             )
-#             if right_known_prefix_text is not None
-#             else None
-#         )    
+
         # add loop in left amd right prefixes
         if left_preprocessed_prefix is not None:
             need_to_add_stop_words = (
@@ -735,14 +715,10 @@ class AutocompletionModel:
         self._verbose_print(f'initial left_ids shape: {left_ids.shape}')
         self._verbose_print(f'initial prefix: {left_preprocessed_prefix}')
         self._verbose_print(f'initial input_ids shape: {right_ids.shape}')
-        #self._verbose_print(f'initial prefix: {right_preprocessed_prefix}')
         self._verbose_print(f'old_name_to_new dict: {old_name_to_new}')
 
-        
         if (
-            left_ids.shape == torch.Size([1, 1])
-        ) and (
-            left_preprocessed_prefix is None
+            left_ids.shape == torch.Size([1, 1]) and left_preprocessed_prefix is None
         ):
             sorted_words = [
                 'library', 'knitr', 'context', 'setwd', 'rm',
@@ -770,22 +746,3 @@ class AutocompletionModel:
             return sorted_words_and_probs
         else:
             return [x[0] for x in sorted_words_and_probs]        
-        
-    @staticmethod
-    def join_old_to_new_names(*args: Tuple[Dict[str, str]]) -> Dict[str, str]:
-        resulting_mapping_vars = args[0]
-        if resulting_mapping_vars:
-            last_index = max(int(x[3:].strip()) for x in resulting_mapping_vars.values() if x.startswith('var'))
-        else:
-            last_index = 0
-        for i in range(1, len(args)):
-            current_dict = args[i]
-            for key in current_dict:
-                if key in resulting_mapping_vars.keys():
-                    continue
-                elif key.startswith('key'):
-                    resulting_mapping_vars[key] = 'var' + str(last_index + 1)
-                    last_index += 1
-                else:
-                    resulting_mapping_vars[key] = current_dict[key]
-        return resulting_mapping_vars
