@@ -455,7 +455,9 @@ class AutocompletionModel:
             beam_log_probs=torch.zeros(
                 len(input_ids[0] if self.double_context else input_ids), device=self.model.device
             ),
-            known_prefixes=[known_prefix for _ in range(len(input_ids[0]))],
+            known_prefixes=[known_prefix for _ in range(
+                len(input_ids[0] if self.double_context else input_ids)
+            )],
             past_model_weights=(None, None) if self.double_context else None,
             output_word_to_prob=dict(),
         )
