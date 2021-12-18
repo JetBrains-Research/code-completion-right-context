@@ -411,7 +411,13 @@ class AutocompletionModel:
             else:
                 model_previous_state = model_state.past_model_weights
             for old_layer_weights in model_previous_state:
-                new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
+                if isinstance(old_layer_weights, (tuple, list)):
+                    new_layer_weights = [
+                        old_one_layer_weights[:, next_token_info.sequence_ids]
+                        for old_one_layer_weights in old_layer_weights
+                    ]
+                else:
+                    new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
                 new_past_model_weights.append(new_layer_weights)
         else:
             new_past_model_weights = None

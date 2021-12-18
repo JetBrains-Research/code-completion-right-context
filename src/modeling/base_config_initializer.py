@@ -98,7 +98,7 @@ class BaseConfigInitializer:
             saved_checkpoint_amount = config.HOME_DIR
         else:
             saved_checkpoint_amount = 3
-
+        
         callbacks = [
             catalyst_callbacks.EarlyStoppingCallback(
                 saved_checkpoint_amount,
@@ -106,7 +106,9 @@ class BaseConfigInitializer:
                 metric_key="loss",
                 minimize="loss"
             ),
-            catalyst_callbacks.CheckpointCallback(saved_checkpoint_amount),
+            catalyst_callbacks.CheckpointCallback(
+                saved_checkpoint_amount,
+            ),
             catalyst_callbacks.SchedulerCallback(
                 loader_key="train", metric_key="loss"
             )
@@ -180,7 +182,7 @@ class BaseConfigInitializer:
         model = self.init_model()
         criterion = self.init_criterion()
         optimizer, scheduler = self.init_optimizer_and_scheduler(model, loaders)
-        model = self._unpack_checkpoint(model, criterion, optimizer)
+        model, criterion, optimizer = self._unpack_checkpoint(model, criterion, optimizer)
         model = model.cpu()
 
         logdir = self.reset_logdir()

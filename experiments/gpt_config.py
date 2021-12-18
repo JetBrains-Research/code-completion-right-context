@@ -5,19 +5,22 @@ from functools import partial
 
 class Config:
     # global parameters
-    HOME_DIR = '/home/porkhun/model_training/practice/try/'
-#     DATA_DIR = '/mnt/data/porkhun/practice/preprocessed_data'
-    DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
+    HOME_DIR = '/home/porkhun/model_training/practice/random_shift/2_20'
+#     HOME_DIR = '/home/porkhun/model_training/practice/try'
+    DATA_DIR = '/mnt/data/porkhun/practice/preprocessed_data'
+#     DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
     WANDB_GROUP = 'Rcompletion'
     MODEL_NAME = 'BiGPT-128'
     TYPE_MODEL = 'BiGPT2' # 'GPT2' or 'BiGPT2'
-    CHECKPOINT_PATH = None 
+    CHECKPOINT_PATH = None
+    MODEL_ADDITIONAL_ARGUMENTS = {
+    }
 
     # dataset mode
     DATASET_TRAIN_MODE = 'lm' # lm or padding or chunks
     DATASET_VALID_MODE = 'lm' # lm or padding or chunks
     DATASET_ADDITIONAL_ARGUMENTS = {
-        'SHIFTS': list(range(2, 11))
+        'SHIFTS': list(range(2, 26))
     }
 
     # tokenizer parameters
@@ -31,9 +34,9 @@ class Config:
     HEAD_SIZE = 128
 
     # training constant parameters
-    BATCH_SIZE = 32
+    BATCH_SIZE = 40
     SEQUENCE_LENGTH = 512
-    N_EPOCH = 10
+    N_EPOCH = 30
     NUM_WORKERS = 1
 
     # optimization classes

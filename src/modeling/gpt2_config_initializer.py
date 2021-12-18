@@ -50,7 +50,6 @@ class GPT2ConfigInitializer(BaseConfigInitializer):
                 crop_state_dict = self._create_checkpoint_from_adaptive(checkpoint)
                 model.gpt.transformer.load_state_dict(crop_state_dict)
             elif checkpoint_model_type is None:
-                model = model.cuda()
                 unpack_checkpoint(
                     checkpoint,
                     model=model,
@@ -59,4 +58,4 @@ class GPT2ConfigInitializer(BaseConfigInitializer):
                 )
             else:
                 raise TypeError('unknown checkpoint_model_type')
-        return model
+        return model, criterion, optimizer
