@@ -401,7 +401,7 @@ class AutocompletionModel:
         # update model weights
         need_to_update_weights = (
             model_state.past_model_weights is not None and
-            model_state.past_model_weights is not (None, None)
+            model_state.past_model_weights != (None, None)
         )
 
         if need_to_update_weights:
@@ -429,7 +429,7 @@ class AutocompletionModel:
             output_word_to_prob=model_state.output_word_to_prob,
             past_model_weights=(
                 (new_past_model_weights, model_state.past_model_weights[1])
-                if self.double_context
+                if self.double_context and model_state.past_model_weights
                 else new_past_model_weights
             )
         )
@@ -683,6 +683,23 @@ class AutocompletionModel:
             is_reversed=True,
             reset=False,
         )
+        
+        ###### add for set training equal to evaluation
+        
+        lenght_left_context = left_ids.size(1)
+        last_right_index = min(512 - lenght_left_context, right_ids.size(1)) if 512 - lenght_left_context > 0 else 1
+        right_ids = right_ids[:, -last_right_index:]
+        lenght_right_context = right_ids.size(1)
+        if 512 - lenght_left_context - lenght_right_context > 0:
+            right_ids = pd.concat(
+                [
+                    torch.zeros((1, 512 - lenght_left_context - lenght_right_context), device=right_ids.device),
+                    right_ids
+                ],
+                dim=1
+            )
+        
+        ######
 
         # union of left_old_name_to_new and right_old_name_to_new
         old_name_to_new = left_old_name_to_new
