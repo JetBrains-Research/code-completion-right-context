@@ -689,15 +689,6 @@ class AutocompletionModel:
         lenght_left_context = left_ids.size(1)
         last_right_index = min(512 - lenght_left_context, right_ids.size(1)) if 512 - lenght_left_context > 0 else 1
         right_ids = right_ids[:, -last_right_index:]
-        lenght_right_context = right_ids.size(1)
-        if 512 - lenght_left_context - lenght_right_context > 0:
-            right_ids = pd.concat(
-                [
-                    torch.zeros((1, 512 - lenght_left_context - lenght_right_context), device=right_ids.device),
-                    right_ids
-                ],
-                dim=1
-            )
         
         ######
 
