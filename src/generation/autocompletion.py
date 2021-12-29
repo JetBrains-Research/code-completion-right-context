@@ -686,8 +686,9 @@ class AutocompletionModel:
         
         ###### add for set training equal to evaluation
         
-        lenght_left_context = left_ids.size(1)
-        last_right_index = min(512 - lenght_left_context, right_ids.size(1)) if 512 - lenght_left_context > 0 else 1
+        len_left = left_ids.size(1)
+        len_right = right_ids.size(1)
+        last_right_index = min(512 - len_left, len_right) if 512 - len_left > 0 else 1
         right_ids = right_ids[:, -last_right_index:]
         
         ######
