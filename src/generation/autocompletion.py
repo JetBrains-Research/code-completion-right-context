@@ -694,7 +694,7 @@ class AutocompletionModel:
         ######
 
         # union of left_old_name_to_new and right_old_name_to_new
-        old_name_to_new = left_old_name_to_new
+        old_name_to_new = right_old_name_to_new
 
         # left model
         left_known_prefix_text = left_last_token
