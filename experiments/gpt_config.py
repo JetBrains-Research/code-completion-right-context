@@ -6,19 +6,19 @@ from functools import partial
 class Config:
     # global parameters
     HOME_DIR = '/home/porkhun/model_training/practice/random_shift/2_20'
-#     HOME_DIR = '/home/porkhun/model_training/practice/try'
+    # HOME_DIR = '/home/porkhun/model_training/practice/try'
     DATA_DIR = '/mnt/data/porkhun/practice/preprocessed_data'
-#     DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
+    # DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
     WANDB_GROUP = 'Rcompletion'
     MODEL_NAME = 'BiGPT-128'
-    TYPE_MODEL = 'BiGPT2' # 'GPT2' or 'BiGPT2'
+    TYPE_MODEL = 'BiGPT2'  # 'GPT2' or 'BiGPT2'
     CHECKPOINT_PATH = None
     MODEL_ADDITIONAL_ARGUMENTS = {
     }
 
     # dataset mode
-    DATASET_TRAIN_MODE = 'lm' # lm or padding or chunks
-    DATASET_VALID_MODE = 'lm' # lm or padding or chunks
+    DATASET_TRAIN_MODE = 'lm'  # lm or padding or chunks
+    DATASET_VALID_MODE = 'lm'  # lm or padding or chunks
     DATASET_ADDITIONAL_ARGUMENTS = {
         'SHIFTS': list(range(2, 26))
     }
@@ -28,7 +28,7 @@ class Config:
     VOCAB_SIZE = 16
 
     # model parameters
-    DROPOUT = 0.1
+    DROPOUT = 0.1  # for right context model
     N_LAYERS = 2
     N_HEADS = 4
     HEAD_SIZE = 128
