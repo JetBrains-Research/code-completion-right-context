@@ -84,7 +84,7 @@ class BiGPTDataset(Dataset):
 
         right_to_left_first_index = i * self.sequence_length + random_shift
         right_to_left_last_index = right_to_left_first_index + self.sequence_length
-        right_to_left_text = self.text[right_to_left_first_index:right_to_left_last_index]
+        right_to_left_text = self.text[right_to_left_first_index:right_to_left_last_index][::-1].copy()
 
         target_first_index = left_to_right_first_index + 1
         target_last_index = left_to_right_last_index + 1
