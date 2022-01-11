@@ -7,7 +7,6 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
-
 from .dataset import DatasetLoaderInitializer
 
 
@@ -80,7 +79,7 @@ class BiGPTDataset(Dataset):
 
         # get random shift from sequence
         random_shift = choice(self.right_to_left_model_shifts)
-        
+
         left_to_right_first_index = i * self.sequence_length
         left_to_right_last_index = left_to_right_first_index + self.sequence_length
         left_to_right_text = self.text[left_to_right_first_index:left_to_right_last_index]
