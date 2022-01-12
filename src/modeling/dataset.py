@@ -167,7 +167,7 @@ class DatasetLoaderInitializer:
         self.shifts = SHIFTS
 
     def _initialize_datasets_and_loaders_as_chunks(self, data_type):
-        folder_name = f'{self.data_dir}/{data_type}_{self.tokenizer_name}{self.vocab_size}'        
+        folder_name = f'{self.data_dir}/{data_type}_{self.tokenizer_name}{self.vocab_size}'
         dataset = LanguageModelChunkDataset(
             folder_with_chunks=folder_name,
             use_first_n_objects=self.use_first_n_objects,
