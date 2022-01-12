@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Tuple, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -8,6 +8,7 @@ from ..utils.technical import annotations_from_parent
 from .base_model import BaseModel
 
 
+# TODO: return back annotations
 # delete annotations because it raise exception
 # TypeError: different varnames forward: 
 # parent varnames: ['self', 'x'], 
@@ -46,6 +47,9 @@ class BiGPTModel(BaseModel):
             n_embd=hidden_size,
             n_layer=n_layers,
             n_head=n_heads,
+            resid_pdrop=dropout,
+            embd_pdrop=dropout,
+            attn_pdrop=dropout,
         )
         self.gpt_left_to_right = transformers.GPT2Model(gpt2_config)
         self.gpt_right_to_left = transformers.GPT2Model(gpt2_config)
@@ -59,7 +63,11 @@ class BiGPTModel(BaseModel):
     def max_context_length(self):
         return self.gpt_left_to_right.config.n_ctx
 
-    def forward(self, input_tensor, reverted_input_tensor):
+    def forward(
+            self,
+            input_tensor: torch.Tensor,
+            reverted_input_tensor: torch.Tensor,
+    ):
         """
         Input_tensor and reverted_tensor should be shifted before the forward!
 
@@ -70,7 +78,9 @@ class BiGPTModel(BaseModel):
         """
         # apply each of the network separately
         left_to_right_output = self.gpt_left_to_right.forward(input_tensor)
-        right_to_left_output = self.gpt_right_to_left.forward(reverted_input_tensor)
+        right_to_left_output = self.gpt_right_to_left.forward(
+            reverted_input_tensor
+        )
 
         # we need to revert right-to-left network before the concat
         right_to_left_reverted_back_output = torch.flip(
@@ -173,8 +183,9 @@ class BiGPTModel(BaseModel):
         logits = self.lm_head(hidden_states)
 
         if use_cache:
-            new_past = (output_left_to_right[1], None) #output_right_to_left[1])
+            # return caching right context
+            new_past = (output_left_to_right[1], None)
         else:
-            new_past = None
+            new_past = (None, None)
             
         return logits, new_past
