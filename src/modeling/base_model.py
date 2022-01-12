@@ -9,7 +9,7 @@ class BaseModel(nn.Module):
     """
     Abstract class for all dl models.
     """
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, *args: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
     def get_next_token_scores(

@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
+
 from .dataset import DatasetLoaderInitializer
 
 
@@ -80,10 +81,10 @@ You give {right_to_left_model_shifts}'''
             if self._getitem_counter >= len(self):
                 self._reset_text()
             self._getitem_counter += 1
-
+            
         # get random shift from sequence
         random_shift = choice(self.right_to_left_model_shifts)
-
+        
         l_to_r_first_index = i * self.sequence_length
         l_to_r_last_index = l_to_r_first_index + self.sequence_length
         left_to_right_text = self.text[l_to_r_first_index: l_to_r_last_index]
@@ -91,8 +92,8 @@ You give {right_to_left_model_shifts}'''
         r_to_l_first_index = i * self.sequence_length + random_shift
         r_to_l_last_index = r_to_l_first_index + self.sequence_length
         right_to_left_text = self.text[
-                             r_to_l_first_index: r_to_l_last_index
-                             ][::-1]
+            r_to_l_first_index: r_to_l_last_index
+        ][::-1]
 
         target_first_index = l_to_r_first_index + 1
         target_last_index = l_to_r_last_index + 1
@@ -123,13 +124,7 @@ class BiDatasetLoaderInitializer(DatasetLoaderInitializer):
             shuffle_dataset='auto',
             **kwargs
     ):
-        super().__init__(
-            data_dir, tokenizer_name, vocab_size,
-            sequence_length, batch_size, num_workers,
-            use_first_n_objects=use_first_n_objects,
-            train_mode=train_mode, valid_mode=valid_mode,
-            shuffle_dataset=shuffle_dataset,
-        )
+        super().__init__()
 
         self.shifts = kwargs.get('SHIFTS', None)
 
@@ -162,5 +157,4 @@ class BiDatasetLoaderInitializer(DatasetLoaderInitializer):
             num_workers=self.num_workers
         )
         return dataset, loader
-
 

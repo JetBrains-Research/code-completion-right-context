@@ -52,7 +52,7 @@ class BiGPTModel(BaseModel):
         )
         self.gpt_left_to_right = transformers.GPT2Model(gpt2_config)
         self.gpt_right_to_left = transformers.GPT2Model(gpt2_config)
-        self.lm_head = nn.Linear(head_size * 2, vocab_size)
+        self.lm_head = nn.Linear(hidden_size * 2, vocab_size)
 
         self._sequence_length = sequence_length
 
@@ -188,8 +188,8 @@ class BiGPTModel(BaseModel):
 
         if use_cache:
             # return caching right context
-            new_past = (output_left_to_right[1], None)
+            new_past = (output_left_to_right[1], output_right_to_left[1])
         else:
-            new_past = (None, None)
+            new_past = None
             
         return logits, new_past
