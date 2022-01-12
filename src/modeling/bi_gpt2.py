@@ -52,7 +52,7 @@ class BiGPTModel(BaseModel):
         )
         self.gpt_left_to_right = transformers.GPT2Model(gpt2_config)
         self.gpt_right_to_left = transformers.GPT2Model(gpt2_config)
-        self.lm_head = nn.Linear(hidden_size * 2, vocab_size)
+        self.lm_head = nn.Linear(head_size * 2, vocab_size)
 
         self._sequence_length = sequence_length
 
