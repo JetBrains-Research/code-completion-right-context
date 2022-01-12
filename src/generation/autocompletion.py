@@ -119,11 +119,6 @@ class AutocompletionModel:
                 self._replaced_variable_str = handler.variable_prefix
 
         self.verbose = verbose
-        if hasattr(self.model, 'double_context') and self.model.double_context:
-            self.double_context = True
-            self.autocomplete_input = self.autocomplete_input_bi_gpt
-        else:
-            self.double_context = False
 
     def _verbose_print(self, text: str, **print_args):
         if self.verbose:
@@ -248,10 +243,7 @@ class AutocompletionModel:
             initial_length: int,
     ) -> torch.Tensor:
         assert len(known_prefixes) == len(next_token_log_probs)
-        if self.double_context:
-            assert len(known_prefixes) == len(current_ids[0])
-        else:
-            assert len(known_prefixes) == len(current_ids)            
+        assert len(known_prefixes) == len(current_ids)
 
         bad_word_ids_list = []
         good_word_ids_list = []
@@ -288,23 +280,11 @@ class AutocompletionModel:
     ) -> Tuple[ModelOutputState, bool]:
         if len(next_token_info.token_ids) == 0:
             return model_state, True
-        # get temporary version of current ids and beam probabilities      
-        if isinstance(model_state.ids, tuple):
-            tmp_new_ids = (
-                torch.cat(
-                    [
-                        model_state.ids[0][next_token_info.sequence_ids],
-                        next_token_info.token_ids.view(-1, 1)
-                    ],
-                    dim=1,
-                ),
-                model_state.ids[1]
-            )
-        else:
-            tmp_new_ids = torch.cat(
-                [model_state.ids[next_token_info.sequence_ids], next_token_info.token_ids.view(-1, 1)],
-                dim=1,
-            )
+        # get temporary version of current ids and beam probabilities
+        tmp_new_ids = torch.cat([
+            model_state.ids[next_token_info.sequence_ids],
+            next_token_info.token_ids.view(-1, 1)
+        ], dim=1)
         tmp_new_beam_log_probs = next_token_info.scores
         
         tmp_new_prefixes = [
@@ -313,10 +293,7 @@ class AutocompletionModel:
 
         # update output words with probs
         # also update prefixes (because some prefixes cause new output tokens)
-        if self.double_context:
-            generated_ids = tmp_new_ids[0][:, initial_length:]
-        else:
-            generated_ids = tmp_new_ids[:, initial_length:]
+        generated_ids = tmp_new_ids[:, initial_length:]
         ids_to_keep = []
         new_prefixes = []
         for i, one_sequence_ids in enumerate(generated_ids):
@@ -367,10 +344,7 @@ class AutocompletionModel:
             return model_state, True
 
         # update again to decrease the complexity of the next iteration
-        if self.double_context:
-            new_ids = (tmp_new_ids[0][ids_to_keep], model_state.ids[1])
-        else:
-            new_ids = tmp_new_ids[ids_to_keep]
+        new_ids = tmp_new_ids[ids_to_keep]
 
         new_beam_log_probs = tmp_new_beam_log_probs[ids_to_keep]
         next_token_info = NextTokenInfo(
@@ -380,25 +354,13 @@ class AutocompletionModel:
         )
 
         # update model weights
-        need_to_update_weights = (
-            model_state.past_model_weights is not None and
-            model_state.past_model_weights != (None, None)
-        )
+        need_to_update_weights = model_state.past_model_weights is not None
 
         if need_to_update_weights:
             new_past_model_weights = []
-            if self.double_context:
-                model_previous_state = model_state.past_model_weights[0]
-            else:
-                model_previous_state = model_state.past_model_weights
+            model_previous_state = model_state.past_model_weights
             for old_layer_weights in model_previous_state:
-                if isinstance(old_layer_weights, (tuple, list)):
-                    new_layer_weights = [
-                        old_one_layer_weights[:, next_token_info.sequence_ids]
-                        for old_one_layer_weights in old_layer_weights
-                    ]
-                else:
-                    new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
+                new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
                 new_past_model_weights.append(new_layer_weights)
         else:
             new_past_model_weights = None
@@ -408,11 +370,7 @@ class AutocompletionModel:
             known_prefixes=new_prefixes,
             beam_log_probs=new_beam_log_probs,
             output_word_to_prob=model_state.output_word_to_prob,
-            past_model_weights=(
-                (new_past_model_weights, model_state.past_model_weights[1])
-                if self.double_context and model_state.past_model_weights
-                else new_past_model_weights
-            )
+            past_model_weights=new_past_model_weights
         )
 
         return new_model_state, False
@@ -680,12 +638,8 @@ class BiAutocompletionModel(AutocompletionModel):
         # don't use last token because it is EOS token
 
         start_index = max(0, len(ids) - 1 - self.model.max_context_length + self.max_tokens_amount)
-        ids = (
-            torch.tensor(ids[start_index:-1])
-                .long()
-                .view(1, -1)
-                .to(self.model.device)
-        )
+        ids = torch.tensor(ids[start_index:-1]).long().view(1, -1)\
+            .to(self.model.device)
 
         old_name_to_new = preprocessing_result['old_name_to_new']
         last_token = preprocessing_result['last_token']
@@ -701,10 +655,8 @@ class BiAutocompletionModel(AutocompletionModel):
             initial_length: int,
     ) -> torch.Tensor:
         assert len(known_prefixes) == len(next_token_log_probs)
-        if self.double_context:
-            assert len(known_prefixes) == len(current_ids[0])
-        else:
-            assert len(known_prefixes) == len(current_ids)
+        assert len(known_prefixes) == len(current_ids[0])
+
 
         bad_word_ids_list = []
         good_word_ids_list = []
@@ -742,21 +694,11 @@ class BiAutocompletionModel(AutocompletionModel):
         if len(next_token_info.token_ids) == 0:
             return model_state, True
         # get temporary version of current ids and beam probabilities
-        if isinstance(model_state.ids, tuple):
-            tmp_new_ids = (
-                torch.cat(
-                    [
-                        model_state.ids[0][next_token_info.sequence_ids],
-                        next_token_info.token_ids.view(-1, 1)
-                    ],
-                    dim=1,
-                ),
-                model_state.ids[1]
-            )
-        else:
-            tmp_new_ids = torch.cat(
-                [model_state.ids[next_token_info.sequence_ids], next_token_info.token_ids.view(-1, 1)],
-                dim=1,
+        tmp_new_ids = (
+            torch.cat([
+                model_state.ids[0][next_token_info.sequence_ids],
+                next_token_info.token_ids.view(-1, 1)
+            ], dim=1,), model_state.ids[1]
             )
         tmp_new_beam_log_probs = next_token_info.scores
 
@@ -766,10 +708,8 @@ class BiAutocompletionModel(AutocompletionModel):
 
         # update output words with probs
         # also update prefixes (because some prefixes cause new output tokens)
-        if self.double_context:
-            generated_ids = tmp_new_ids[0][:, initial_length:]
-        else:
-            generated_ids = tmp_new_ids[:, initial_length:]
+
+        generated_ids = tmp_new_ids[0][:, initial_length:]
         ids_to_keep = []
         new_prefixes = []
         for i, one_sequence_ids in enumerate(generated_ids):
@@ -779,8 +719,7 @@ class BiAutocompletionModel(AutocompletionModel):
             )
             output_word = get_first_word(output_text, self.preprocessor.lexer)
             output_word = self.preprocessor.preprocess_code_text(
-                output_word,
-                reset=False
+                output_word, reset=False
             ).strip()
 
             need_to_keep_id = (
@@ -820,10 +759,7 @@ class BiAutocompletionModel(AutocompletionModel):
             return model_state, True
 
         # update again to decrease the complexity of the next iteration
-        if self.double_context:
-            new_ids = (tmp_new_ids[0][ids_to_keep], model_state.ids[1])
-        else:
-            new_ids = tmp_new_ids[ids_to_keep]
+        new_ids = (tmp_new_ids[0][ids_to_keep], model_state.ids[1])
 
         new_beam_log_probs = tmp_new_beam_log_probs[ids_to_keep]
         next_token_info = NextTokenInfo(
@@ -833,28 +769,17 @@ class BiAutocompletionModel(AutocompletionModel):
         )
 
         # update model weights
-        need_to_update_weights = (
-                model_state.past_model_weights is not None and
-                model_state.past_model_weights is not (None, None)
-        )
+        need_to_update_weights = model_state.past_model_weights != (None, None)
 
         if need_to_update_weights:
             new_past_model_weights = []
-            if self.double_context:
-                model_previous_state = model_state.past_model_weights[0]
-            else:
-                model_previous_state = model_state.past_model_weights
+
+            model_previous_state = model_state.past_model_weights[0]
             for old_layer_weights in model_previous_state:
-                if isinstance(old_layer_weights, (tuple, list)):
-                    new_layer_weights = [
-                        old_one_layer_weights[:, next_token_info.sequence_ids]
-                        for old_one_layer_weights in old_layer_weights
-                    ]
-                else:
-                    new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
+                new_layer_weights = old_layer_weights[:, next_token_info.sequence_ids]
                 new_past_model_weights.append(new_layer_weights)
         else:
-            new_past_model_weights = None
+            new_past_model_weights = (None, None)
 
         new_model_state = ModelOutputState(
             ids=new_ids,
@@ -862,9 +787,7 @@ class BiAutocompletionModel(AutocompletionModel):
             beam_log_probs=new_beam_log_probs,
             output_word_to_prob=model_state.output_word_to_prob,
             past_model_weights=(
-                (new_past_model_weights, model_state.past_model_weights[1])
-                if self.double_context
-                else new_past_model_weights
+                new_past_model_weights, model_state.past_model_weights[1]
             )
         )
 
@@ -893,15 +816,13 @@ class BiAutocompletionModel(AutocompletionModel):
         model_state = ModelOutputState(
             ids=input_ids,
             beam_log_probs=torch.zeros(
-                len(input_ids[0] if self.double_context else input_ids), device=self.model.device
+                len(input_ids[0]), device=self.model.device
             ),
-            known_prefixes=[known_prefix for _ in range(
-                len(input_ids[0] if self.double_context else input_ids)
-            )],
-            past_model_weights=(None, None) if self.double_context else None,
+            known_prefixes=[known_prefix for _ in range(len(input_ids[0]))],
+            past_model_weights=(None, None),
             output_word_to_prob=dict(),
         )
-        initial_length = input_ids[0].shape[1] if self.double_context else input_ids.shape[1]
+        initial_length = input_ids[0].shape[1]
 
         for i in range(self.max_tokens_amount):
             next_token_logits, past_model_weights = self._get_next_token_log_probs(
@@ -919,9 +840,8 @@ class BiAutocompletionModel(AutocompletionModel):
             )
 
             postprocessed_scores = (
-                    model_state.beam_log_probs.view(len(
-                        model_state.ids[0] if self.double_context else model_state.ids
-                    ), 1) + log_softmax(postprocessed_scores, dim=-1)
+                    model_state.beam_log_probs.view(len(model_state.ids[0]), 1)\
+                    + log_softmax(postprocessed_scores, dim=-1)
             )
 
             next_token_info = self.next_token_chooser.get_next_token_from_scores(
@@ -976,14 +896,14 @@ class BiAutocompletionModel(AutocompletionModel):
             is_reversed=True,
             reset=False,
         )
-        
+
         ###### add for set training equal to evaluation
-        
+
         len_left = left_ids.size(1)
         len_right = right_ids.size(1)
         last_right_index = min(512 - len_left, len_right) if 512 - len_left > 0 else 1
         right_ids = right_ids[:, -last_right_index:]
-        
+
         ######
 
         # union of left_old_name_to_new and right_old_name_to_new
