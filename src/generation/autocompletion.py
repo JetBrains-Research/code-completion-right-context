@@ -165,12 +165,8 @@ class AutocompletionModel:
 
         # don't use last token because it is EOS token
         start_index = max(0, len(ids) - 1 - self.model.max_context_length + self.max_tokens_amount)
-        ids = (
-            torch.tensor(ids[start_index:-1])
-            .long()
-            .view(1, -1)
+        ids = torch.tensor(ids[start_index:-1]).long().view(1, -1)\
             .to(self.model.device)
-        )
 
         old_name_to_new = preprocessing_result['old_name_to_new']
         last_token = preprocessing_result['last_token']
@@ -359,10 +355,6 @@ class AutocompletionModel:
 
         # update model weights
         need_to_update_weights = model_state.past_model_weights is not None
-        need_to_update_weights = (
-            model_state.past_model_weights is not None and
-            model_state.past_model_weights != (None, None)
-        )
 
         if need_to_update_weights:
             new_past_model_weights = []
@@ -378,11 +370,7 @@ class AutocompletionModel:
             known_prefixes=new_prefixes,
             beam_log_probs=new_beam_log_probs,
             output_word_to_prob=model_state.output_word_to_prob,
-            past_model_weights=(
-                (new_past_model_weights, model_state.past_model_weights[1])
-                if self.double_context and model_state.past_model_weights
-                else new_past_model_weights
-            )
+            past_model_weights=new_past_model_weights
         )
 
         return new_model_state, False
@@ -852,9 +840,8 @@ class BiAutocompletionModel(AutocompletionModel):
             )
 
             postprocessed_scores = (
-                    model_state.beam_log_probs.view(len(
-                        model_state.ids[0] if self.double_context else model_state.ids
-                    ), 1) + log_softmax(postprocessed_scores, dim=-1)
+                    model_state.beam_log_probs.view(len(model_state.ids[0]), 1)\
+                    + log_softmax(postprocessed_scores, dim=-1)
             )
 
             next_token_info = self.next_token_chooser.get_next_token_from_scores(
@@ -910,17 +897,8 @@ class BiAutocompletionModel(AutocompletionModel):
             reset=False,
         )
 
-        ###### add for set training equal to evaluation
-
-        len_left = left_ids.size(1)
-        len_right = right_ids.size(1)
-        last_right_index = min(512 - len_left, len_right) if 512 - len_left > 0 else 1
-        right_ids = right_ids[:, -last_right_index:]
-
-        ######
-
         # union of left_old_name_to_new and right_old_name_to_new
-        old_name_to_new = right_old_name_to_new
+        old_name_to_new = left_old_name_to_new
 
         # left model
         left_known_prefix_text = left_last_token
