@@ -1,12 +1,11 @@
 import os
 import json
 
+import joblib
 import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-import joblib
 
-from .bi_gpt2_dataset import BiGPTDataset
 
 
 class LanguageModelDataset(Dataset):
@@ -26,7 +25,7 @@ class LanguageModelDataset(Dataset):
         ----------
         text : numpy ndarray
             Array of token indexes.
-        text_list : list of list of int
+        text_list : list with list of int
             Each element is one document token indexes.
         reshuffle : bool
             If True then shuffle all data after each epoch.
@@ -124,8 +123,7 @@ class DatasetLoaderInitializer:
             use_first_n_objects=None,
             train_mode='padding', valid_mode='lm',
             shuffle_dataset='auto',
-            is_bi_gpt=False,
-            SHIFTS=None
+            **kwargs
     ):
         """
 
@@ -163,8 +161,6 @@ class DatasetLoaderInitializer:
         }
         self._padding_fn = PaddingCollateFn(max_length=self.sequence_length, batch_first=True)
         self.shuffle_dataset = shuffle_dataset
-        self.is_bi_gpt = is_bi_gpt
-        self.shifts = SHIFTS
 
     def _initialize_datasets_and_loaders_as_chunks(self, data_type):
         folder_name = f'{self.data_dir}/{data_type}_{self.tokenizer_name}{self.vocab_size}'        
@@ -195,19 +191,12 @@ class DatasetLoaderInitializer:
             shuffle_dataset = True
         else:
             raise TypeError('unknown shuffle_dataset value')
-        # i change LanguageModelChunkDataset to BiGPTDataset if model is BiGPT
-        if self.shifts is not None:
-            kwargs = {'right_to_left_model_shifts': self.shifts}
-        else:
-            kwargs = {}
-        ClassOfDataset = BiGPTDataset if self.is_bi_gpt else LanguageModelDataset 
-        dataset = ClassOfDataset(
+        dataset = LanguageModelDataset(
             text_list=data,
             sequence_length=self.sequence_length,
             reshuffle=shuffle_dataset,
             batch_first=True,
             use_first_n_objects=self.use_first_n_objects,
-            **kwargs
         )
 
         shuffle = True if data_type == 'train' else False
