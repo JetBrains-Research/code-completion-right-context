@@ -897,8 +897,17 @@ class BiAutocompletionModel(AutocompletionModel):
             reset=False,
         )
 
+        ###### add for set training equal to evaluation
+
+        len_left = left_ids.size(1)
+        len_right = right_ids.size(1)
+        last_right_index = min(512 - len_left, len_right) if 512 - len_left > 0 else 1
+        right_ids = right_ids[:, -last_right_index:]
+
+        ######
+
         # union of left_old_name_to_new and right_old_name_to_new
-        old_name_to_new = left_old_name_to_new
+        old_name_to_new = right_old_name_to_new
 
         # left model
         left_known_prefix_text = left_last_token

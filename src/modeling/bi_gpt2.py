@@ -188,8 +188,8 @@ class BiGPTModel(BaseModel):
 
         if use_cache:
             # return caching right context
-            new_past = (output_left_to_right[1], output_right_to_left[1])
+            new_past = (output_left_to_right[1], None)
         else:
-            new_past = None
+            new_past = (None, None)
             
         return logits, new_past
