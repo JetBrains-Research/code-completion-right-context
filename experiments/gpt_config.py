@@ -3,6 +3,7 @@ import torch.optim as optim
 
 from functools import partial
 
+
 class Config:
     # global parameters
     HOME_DIR = '/home/porkhun/model_training/practice/random_shift/2_20'
@@ -13,14 +14,13 @@ class Config:
     MODEL_NAME = 'BiGPT-128'
     TYPE_MODEL = 'BiGPT2'  # 'GPT2' or 'BiGPT2'
     CHECKPOINT_PATH = None
-    MODEL_ADDITIONAL_ARGUMENTS = {
-    }
+    MODEL_ADDITIONAL_ARGUMENTS = {}
 
     # dataset mode
     DATASET_TRAIN_MODE = 'lm'  # lm or padding or chunks
     DATASET_VALID_MODE = 'lm'  # lm or padding or chunks
     DATASET_ADDITIONAL_ARGUMENTS = {
-        'SHIFTS': list(range(2, 26))
+        'shifts': list(range(2, 26))
     }
 
     # tokenizer parameters
@@ -28,7 +28,7 @@ class Config:
     VOCAB_SIZE = 16
 
     # model parameters
-    DROPOUT = 0.1  # for right context model
+    DROPOUT = 0.1  # for right context model or all if gpt2
     N_LAYERS = 2
     N_HEADS = 4
     HEAD_SIZE = 128
@@ -58,4 +58,3 @@ class Config:
 
     # seed
     SEED = 12153
-    

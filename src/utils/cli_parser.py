@@ -9,6 +9,7 @@ def int_or_none(value):
         return None
     return int(value)
 
+
 def parse_bool(value):
     if value is True or value.strip().lower() == 'true':
         return True

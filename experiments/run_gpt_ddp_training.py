@@ -9,36 +9,48 @@ from catalyst import dl
 
 from src.utils.cli_parser import parse_arguments
 from src.modeling.gpt2_config_initializer import GPT2ConfigInitializer
+from src.modeling.bi_gpt2_config_initializer import BiGPT2ConfigInitializer
 
 from gpt_config import Config
-from ddp_models import DDPParameters, DDPSupervisedRunner
+from ddp_models import DDPParameters, DDPSupervisedRunner, create_train_config
 
 if __name__ == '__main__':
-    extra_runner_train_parameters = {}
-    extra_runner_parameters = {}
+    extra_runner_kwargs = {}
+    extra_logger_kwargs = {}
 
-    Config = parse_arguments(Config)
+    train_config = parse_arguments(Config)
 
-    np.random.seed(Config.SEED)
+    np.random.seed(train_config.SEED)
 
     if train_config.TYPE_MODEL == 'GPT2':
         initializer = GPT2ConfigInitializer(config=train_config)
     elif train_config.TYPE_MODEL == 'BiGPT2':
         initializer = BiGPT2ConfigInitializer(config=train_config)
-        extra_runner_kwargs['input_key'] = ['input_tensor', 'reverted_input_tensor']
     else:
         raise ValueError(f'Strange model type: \'{train_config.TYPE_MODEL}\'')
     training_parameters = initializer.init_all()
 
     if train_config.use_distributed_mode:
         runner_initializer = DDPSupervisedRunner
-        extra_runner_kwargs['ddp_parameters'] = DDPParameters(
-            datasets=training_parameters['datasets'],
-            config=train_config,
-        )
+        extra_runner_kwargs = {
+            'ddp_parameters': DDPParameters(
+                datasets=training_parameters['datasets'],
+                config=train_config,
+            ),
+        }
         extra_logger_kwargs['group'] = 'DDP'
     else:
         runner_initializer = dl.SupervisedRunner
+
+    if train_config.TYPE_MODEL == 'BiGPT2':
+        extra_runner_kwargs['input_key'] = ['input_tensor', 'reverted_input_tensor']
+
+    logger = dl.WandbLogger(
+        project=train_config.WANDB_GROUP,
+        name=train_config.MODEL_NAME,
+        **extra_logger_kwargs
+    )
+    logger.log_hparams(hparams=create_train_config(train_config))
 
     runner = runner_initializer(**extra_runner_kwargs)
 
@@ -54,11 +66,6 @@ if __name__ == '__main__':
         ddp=train_config.use_distributed_mode,
         callbacks=training_parameters['callbacks'],
         verbose=True,
-        # amp=False,
-        loggers={'wandb': dl.WandbLogger(
-            project=train_config.WANDB_GROUP,
-            name=train_config.MODEL_NAME,
-            config=create_train_config(train_config),
-            **extra_logger_kwargs
-        )}
+        amp=False,
+        loggers={'wandb': logger}
     )

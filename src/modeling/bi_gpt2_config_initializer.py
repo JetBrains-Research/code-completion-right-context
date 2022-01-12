@@ -1,3 +1,7 @@
+from collections import OrderedDict
+
+from catalyst.utils import load_checkpoint, unpack_checkpoint
+
 from .base_config_initializer import BaseConfigInitializer
 from .bi_gpt2 import BiGPTModel
 from .bi_dataset import BiDatasetLoaderInitializer

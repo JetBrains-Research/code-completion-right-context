@@ -1,11 +1,10 @@
-import os
-import json
-
 from random import choice
 
+import joblib
 import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
+
 
 from .dataset import DatasetLoaderInitializer
 
@@ -40,13 +39,19 @@ class BiGPTDataset(Dataset):
             Shift of the right_to_left model.
         """
         super(BiGPTDataset, self).__init__()
+        if right_to_left_model_shifts is None:
+            right_to_left_model_shifts = [2]
+        assert isinstance(right_to_left_model_shifts, list)
         if text is not None and text_list is not None:
             raise TypeError('only one of the arguments text and text_list must be specifed')
         if text is None and text_list is None:
             raise TypeError('one of the arguments text and text_list must be specifed')
-        # здесь будет баг
+
         if len(right_to_left_model_shifts) < 0 or any(x < 2 for x in right_to_left_model_shifts):
-            raise TypeError(f'All values in right_to_left_model_shift must be greater than 2. You give {right_to_left_model_shifts}')
+            raise TypeError(
+                f'''All values in right_to_left_model_shift must be greater than 2.
+You give {right_to_left_model_shifts}'''
+            )
 
         self.sequence_length = sequence_length
         self.batch_first = batch_first
@@ -76,20 +81,22 @@ class BiGPTDataset(Dataset):
             if self._getitem_counter >= len(self):
                 self._reset_text()
             self._getitem_counter += 1
-
+            
         # get random shift from sequence
         random_shift = choice(self.right_to_left_model_shifts)
+        
+        l_to_r_first_index = i * self.sequence_length
+        l_to_r_last_index = l_to_r_first_index + self.sequence_length
+        left_to_right_text = self.text[l_to_r_first_index: l_to_r_last_index]
 
-        left_to_right_first_index = i * self.sequence_length
-        left_to_right_last_index = left_to_right_first_index + self.sequence_length
-        left_to_right_text = self.text[left_to_right_first_index:left_to_right_last_index]
+        r_to_l_first_index = i * self.sequence_length + random_shift
+        r_to_l_last_index = r_to_l_first_index + self.sequence_length
+        right_to_left_text = self.text[
+            r_to_l_first_index: r_to_l_last_index
+        ][::-1]
 
-        right_to_left_first_index = i * self.sequence_length + random_shift
-        right_to_left_last_index = right_to_left_first_index + self.sequence_length
-        right_to_left_text = self.text[right_to_left_first_index:right_to_left_last_index][::-1].copy()
-
-        target_first_index = left_to_right_first_index + 1
-        target_last_index = left_to_right_last_index + 1
+        target_first_index = l_to_r_first_index + 1
+        target_last_index = l_to_r_last_index + 1
         target_sequence = self.text[target_first_index:target_last_index]
 
         left_to_right_tensor = torch.tensor(left_to_right_text).long()
@@ -117,13 +124,7 @@ class BiDatasetLoaderInitializer(DatasetLoaderInitializer):
             shuffle_dataset='auto',
             **kwargs
     ):
-        super().__init__(
-            data_dir, tokenizer_name, vocab_size,
-            sequence_length, batch_size, num_workers,
-            use_first_n_objects=use_first_n_objects,
-            train_mode=train_mode, valid_mode=valid_mode,
-            shuffle_dataset=shuffle_dataset,
-        )
+        super().__init__()
 
         self.shifts = kwargs.get('SHIFTS', None)
 
@@ -156,5 +157,4 @@ class BiDatasetLoaderInitializer(DatasetLoaderInitializer):
             num_workers=self.num_workers
         )
         return dataset, loader
-
 

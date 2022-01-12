@@ -1,8 +1,6 @@
 import os
 import shutil
 
-from catalyst import dl
-from catalyst.utils import load_checkpoint, unpack_checkpoint
 from catalyst import callbacks as catalyst_callbacks
 
 from .dataset import DatasetLoaderInitializer
@@ -19,7 +17,6 @@ class BaseConfigInitializer:
 
     def init_dataset_and_loaders(self):
         config = self.config
-        is_bi_gpt = True if self.config.TYPE_MODEL == 'BiGPT2' else False
         initializer = DatasetLoaderInitializer(
             data_dir=config.DATA_DIR,
             tokenizer_name=config.TOKENIZER,
@@ -30,7 +27,6 @@ class BaseConfigInitializer:
             use_first_n_objects=config.use_first_n_objects,
             train_mode=config.DATASET_TRAIN_MODE,
             valid_mode=config.DATASET_VALID_MODE,
-            is_bi_gpt=is_bi_gpt,
             **config.DATASET_ADDITIONAL_ARGUMENTS,
         )
         datasets, loaders = initializer.initialize_dataset_and_loaders()
@@ -93,24 +89,28 @@ class BaseConfigInitializer:
         callbacks : list of catalyst callbacks
         """
         config = self.config
-
-        if hasattr(config, 'HOME_DIR'):
-            saved_checkpoint_amount = config.HOME_DIR
-        else:
-            saved_checkpoint_amount = 3
-
+        
         callbacks = [
             catalyst_callbacks.EarlyStoppingCallback(
-                saved_checkpoint_amount,
+                3,
                 loader_key="valid",
                 metric_key="loss",
-                minimize="loss"
+                minimize=True
             ),
             catalyst_callbacks.CheckpointCallback(
-                saved_checkpoint_amount,
+                config.HOME_DIR,
+                loader_key="valid",
+                metric_key="loss",
+                minimize=True,
+                resume=config.CHECKPOINT_PATH,
             ),
             catalyst_callbacks.SchedulerCallback(
                 loader_key="train", metric_key="loss"
+            ),
+            catalyst_callbacks.MRRCallback(
+                input_key="logits",
+                target_key="targets",
+                topk_args=(1, 3, 5)
             ),
         ]
 
@@ -157,18 +157,6 @@ class BaseConfigInitializer:
         callbacks = self._init_base_callbacks()
         return callbacks
 
-    def _unpack_checkpoint(self, model, criterion, optimizer):
-        if self.config.CHECKPOINT_PATH is not None:
-            checkpoint = load_checkpoint(self.config.CHECKPOINT_PATH)
-            model = model.cuda()
-            unpack_checkpoint(
-                checkpoint,
-                model=model,
-                criterion=criterion,
-                optimizer=optimizer,
-            )
-        return model
-
     def init_all(self):
         """
         Main model initialize function.
@@ -182,8 +170,6 @@ class BaseConfigInitializer:
         model = self.init_model()
         criterion = self.init_criterion()
         optimizer, scheduler = self.init_optimizer_and_scheduler(model, loaders)
-        model, criterion, optimizer = self._unpack_checkpoint(model, criterion, optimizer)
-        model = model.cpu()
 
         logdir = self.reset_logdir()
         callbacks = self.init_callbacks(logdir, criterion=criterion)
@@ -202,7 +188,4 @@ class BaseConfigInitializer:
         return training_parameters
 
     def init_model(self):
-        raise NotImplementedError
-
-    def init_logging_callback(self, logdir):
         raise NotImplementedError
