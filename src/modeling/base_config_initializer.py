@@ -107,11 +107,6 @@ class BaseConfigInitializer:
             catalyst_callbacks.SchedulerCallback(
                 loader_key="train", metric_key="loss"
             ),
-            catalyst_callbacks.MRRCallback(
-                input_key="logits",
-                target_key="targets",
-                topk_args=(1, 3, 5)
-            ),
         ]
 
         if config.MAX_NORM is not None:
