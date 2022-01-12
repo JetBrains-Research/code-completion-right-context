@@ -89,7 +89,7 @@ class BaseConfigInitializer:
         callbacks : list of catalyst callbacks
         """
         config = self.config
-        
+
         callbacks = [
             catalyst_callbacks.EarlyStoppingCallback(
                 3,

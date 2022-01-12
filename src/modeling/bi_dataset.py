@@ -8,6 +8,9 @@ from torch.utils.data import Dataset, DataLoader
 from .dataset import DatasetLoaderInitializer
 
 
+from .dataset import DatasetLoaderInitializer
+
+
 class BiGPTDataset(Dataset):
     def __init__(
             self,
@@ -45,7 +48,7 @@ class BiGPTDataset(Dataset):
             raise TypeError('only one of the arguments text and text_list must be specifed')
         if text is None and text_list is None:
             raise TypeError('one of the arguments text and text_list must be specifed')
-
+        # здесь будет баг
         if len(right_to_left_model_shifts) < 0 or any(x < 2 for x in right_to_left_model_shifts):
             raise TypeError(
                 f'''All values in right_to_left_model_shift must be greater than 2.'''
