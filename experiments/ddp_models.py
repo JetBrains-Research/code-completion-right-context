@@ -14,7 +14,6 @@ from gpt_config import Config
 class DDPParameters(NamedTuple):
     datasets: Dict[str, Dataset]
     config: Config
-    loggers: Dict[str, dl.ILogger]
 
 
 class DDPSupervisedRunner(dl.SupervisedRunner):
@@ -55,10 +54,39 @@ class DDPSupervisedRunner(dl.SupervisedRunner):
         )
         return {'train': train_loader, 'valid': valid_loader}
 
-    def get_loggers(self):
-        loggers = OrderedDict([
-            ("console", dl.ConsoleLogger()),
-        ])
-        if self.__ddp_params.loggers is not None:
-            loggers.update(self.__ddp_params.loggers)
-        return loggers
+
+def create_train_config(config: Config):
+    return {
+        'model_name': config.MODEL_NAME,
+        'sequence_length': config.SEQUENCE_LENGTH,
+        'tokenizer': config.TOKENIZER,
+        'num_epochs': config.N_EPOCH,
+        'batch_size': config.BATCH_SIZE,
+        'h_size': config.HEAD_SIZE,
+        'n_heads': config.N_HEADS,
+        'vocab_size': config.VOCAB_SIZE,
+        'n_layers': config.N_LAYERS,
+        'dropout': config.DROPOUT,
+        'optim': (
+            config.OPTIMIZER_NAME if hasattr(config, 'OPTIMIZER_NAME')
+            else str(config.OPTIMIZER_CLASS)
+        ),
+        **{
+            f'optim_{key}': f'{value}'
+            for key, value in config.OPTIMIZER_ADDITIONAL_ARGUMENTS.items()
+        },
+        'max_norm': config.MAX_NORM,
+        'accumulation_steps': config.ACCUMULATION_STEPS,
+        'scheduler': (
+            config.SCHEDULER_NAME if hasattr(config, 'SCHEDULER_NAME')
+            else str(config.SCHEDULER_CLASS)
+        ),
+        **{
+            f'scheduler_{key}': f'{value}'
+            for key, value in config.SCHEDULER_ADDITIONAL_ARGUMENTS.items()
+        },
+        'distributed_mode': config.use_distributed_mode,
+        'config_name': config.config_name,
+        'logdir': config.HOME_DIR,
+        'num_workers': config.NUM_WORKERS,
+    }
