@@ -98,7 +98,7 @@ class BaseConfigInitializer:
             saved_checkpoint_amount = config.HOME_DIR
         else:
             saved_checkpoint_amount = 3
-        
+
         callbacks = [
             catalyst_callbacks.EarlyStoppingCallback(
                 saved_checkpoint_amount,
@@ -111,7 +111,7 @@ class BaseConfigInitializer:
             ),
             catalyst_callbacks.SchedulerCallback(
                 loader_key="train", metric_key="loss"
-            )
+            ),
         ]
 
         if config.MAX_NORM is not None:
