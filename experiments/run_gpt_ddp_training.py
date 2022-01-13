@@ -1,52 +1,48 @@
 import sys
+import warnings
+
 sys.path.append('../')
+warnings.filterwarnings("ignore")
 
 import numpy as np
 from catalyst import dl
 
 from src.utils.cli_parser import parse_arguments
 from src.modeling.gpt2_config_initializer import GPT2ConfigInitializer
+from src.modeling.bi_gpt2_config_initializer import BiGPT2ConfigInitializer
 
-from collections import OrderedDict
+from gpt_config import Config
+from ddp_models import DDPParameters, DDPSupervisedRunner, create_train_config
 
 if __name__ == '__main__':
-    Config = parse_arguments()
-    np.random.seed(Config.SEED)
+    extra_runner_kwargs = {}
+    extra_logger_kwargs = {}
 
-    initializer = GPT2ConfigInitializer(config=Config)
+    train_config = parse_arguments(Config)
+
+    np.random.seed(train_config.SEED)
+
+    if train_config.TYPE_MODEL == 'GPT2':
+        initializer = GPT2ConfigInitializer(config=train_config)
+    elif train_config.TYPE_MODEL == 'BiGPT2':
+        initializer = BiGPT2ConfigInitializer(config=train_config)
+        extra_runner_kwargs['input_key'] = ['input_tensor', 'reverted_input_tensor']
+    else:
+        raise ValueError(f'Strange model type: \'{train_config.TYPE_MODEL}\'')
     training_parameters = initializer.init_all()
 
-    runner = dl.SupervisedRunner(device='cuda')
+    if train_config.use_distributed_mode:
+        runner_initializer = DDPSupervisedRunner
+        extra_runner_kwargs['ddp_parameters'] = DDPParameters(
+            datasets=training_parameters['datasets'],
+            config=train_config,
+        )
+        extra_logger_kwargs['group'] = 'DDP'
+    else:
+        runner_initializer = dl.SupervisedRunner
 
-    # if Config.use_distributed_mode:
-    #     runner.train(
-    #         model=training_parameters['model'],
-    #         criterion=training_parameters['criterion'],
-    #         optimizer=training_parameters['optimizer'],
-    #         scheduler=training_parameters['scheduler'],
-    #         datasets=OrderedDict({
-    #             'train': training_parameters['datasets']['train'],
-    #             'valid': training_parameters['datasets']['valid'],
-    #             'batch_size': training_parameters['loaders']['train'].batch_size,
-    #             'num_workers': training_parameters['loaders']['train'].num_workers,
-    #             'loaders_params': {
-    #                 'train': {
-    #                     'collate_fn': training_parameters['loaders']['train'].collate_fn,
-    #                     'shuffle': training_parameters['loaders']['train'].shuffle,
-    #                 },
-    #                 'valud': {
-    #                     'collate_fn': training_parameters['loaders']['valid'].collate_fn,
-    #                     'shuffle': training_parameters['loaders']['train'].shuffle,
-    #                 },
-    #             },
-    #         }),
-    #         logdir=training_parameters['logdir'],
-    #         num_epochs=Config.N_EPOCH,
-    #         valid_loader='valid',
-    #         distributed=Config.use_distributed_mode,
-    #         callbacks=training_parameters['callbacks'],
-    #     )
-    # else:
+    runner = runner_initializer(**extra_runner_kwargs)
+
     runner.train(
         model=training_parameters['model'],
         criterion=training_parameters['criterion'],
@@ -54,8 +50,16 @@ if __name__ == '__main__':
         scheduler=training_parameters['scheduler'],
         loaders=training_parameters['loaders'],
         logdir=training_parameters['logdir'],
-        num_epochs=Config.N_EPOCH,
+        num_epochs=train_config.N_EPOCH,
         valid_loader='valid',
-        distributed=Config.use_distributed_mode,
+        ddp=train_config.use_distributed_mode,
         callbacks=training_parameters['callbacks'],
+        verbose=True,
+        # amp=False,
+        loggers={'wandb': dl.WandbLogger(
+            project=train_config.WANDB_GROUP,
+            name=train_config.MODEL_NAME,
+            config=create_train_config(train_config),
+            **extra_logger_kwargs
+        )}
     )

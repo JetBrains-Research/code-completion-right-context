@@ -62,7 +62,6 @@ class TokenScoresPostprocessor:
             initial_length: int = None,
     ) -> torch.Tensor:
         """
-
         Parameters
         ----------
         scores : torch.tensor (n_sequences, vocab_size)
@@ -78,8 +77,6 @@ class TokenScoresPostprocessor:
             Incompatible with bad_word_ids.
             Logic of structure is the same as in the bad_word_ids.
         initial_length : int
-
-
         Returns
         -------
         scores : torch.tensor(n_sequences, vocab_size)
@@ -122,7 +119,7 @@ class TokenScoresPostprocessor:
                 protected_ids = self._calc_list_compatible_ids(input_ids[i], sequence_good_word_ids)
                 banned_ids = torch.tensor(list(
                     possible_id_set
-                    .difference(protected_ids)
+                        .difference(protected_ids)
                 ))
                 scores[i, banned_ids] = -float('inf')
 
@@ -174,6 +171,7 @@ class NextTokenChooser:
                 sequence_max_samples=sequence_max_samples,
             )
         else:
+            
             if sequence_max_samples is None:
                 next_token_info = self._get_next_token_no_sampling_no_sequence_restriction(
                     scores=scores,
@@ -185,7 +183,6 @@ class NextTokenChooser:
                     num_tokens=num_tokens,
                     sequence_max_samples=sequence_max_samples,
                 )
-
         no_inf_mask = next_token_info.scores > -float('inf')
         next_token_info_without_inf = NextTokenInfo(
             sequence_ids=next_token_info.sequence_ids[no_inf_mask],
@@ -302,3 +299,79 @@ class NextTokenChooser:
         )
 
         return next_token_info
+
+
+class BiTokenScoresPostprocessor(TokenScoresPostprocessor):
+    def postprocess_next_token_scores(
+            self,
+            scores: torch.Tensor,
+            input_ids: torch.Tensor,
+            bad_word_ids: List[Union[None, List[List[int]]]] = None,
+            good_word_ids: List[Union[None, List[List[int]]]] = None,
+            initial_length: int = None,
+    ) -> torch.Tensor:
+        """
+
+        Parameters
+        ----------
+        scores : torch.Tensor (n_sequences, vocab_size)
+        input_ids : torch.Tensor (n_sequences, sequence_length)
+        bad_word_ids : list of list of list of int
+            Words to ban.
+            First list has length n_sequences.
+            Each second-depth list is list of banned words for each sequence.
+            Each third-depth list is banned word (can contain several tokens).
+            Incompatible with good_word_ids: each sequence can have only one of these restrictions.
+        good_word_ids : list of list of list of int
+            Words that are allowed.
+            Incompatible with bad_word_ids.
+            Logic of structure is the same as in the bad_word_ids.
+        initial_length : int
+
+
+        Returns
+        -------
+        scores : torch.tensor(n_sequences, vocab_size)
+            Postprocessed scores.
+        """
+        if good_word_ids is None:
+            good_word_ids = [None for _ in range(scores.shape[0])]
+        if bad_word_ids is None:
+            bad_word_ids = [None for _ in range(scores.shape[0])]
+        if initial_length is None and self.penalty_theta != 1.0:
+            raise TypeError("Can't use penalty theta without initial length")
+
+        scores = scores.clone()
+        # to make all scores negative to allow theta penalty working
+        if self.penalty_theta != 1:
+            scores -= scores.max()
+
+        # Temperature (higher temperature => more likely to sample low probability tokens)
+        if self.temperature != 1.0:
+            scores /= self.temperature
+        if self.penalty_theta != 1.0:
+            generated_tokens = input_ids[0][:, initial_length:]
+            for i, sequence in enumerate(generated_tokens):
+                scores[i, sequence] /= self.penalty_theta
+
+        possible_id_set = set(range(scores.shape[1]))
+        for i, sequence_word_lists in enumerate(zip(bad_word_ids, good_word_ids)):
+            sequence_bad_word_ids, sequence_good_word_ids = sequence_word_lists
+            # if sequence_bad_word_ids is not None and sequence_good_word_ids is not None:
+            #     raise TypeError('Only one of the good_words_ids and bad_words_ids must be setted')
+            if sequence_bad_word_ids is None and sequence_good_word_ids is None:
+                continue
+
+            if sequence_bad_word_ids is not None:
+                banned_ids = self._calc_list_compatible_ids(input_ids[0][i], sequence_bad_word_ids)
+                scores[i, banned_ids] = -float('inf')
+
+            if sequence_good_word_ids is not None:
+                # calculate a list of not-banned tokens according to good words
+                protected_ids = self._calc_list_compatible_ids(input_ids[0][i], sequence_good_word_ids)
+                banned_ids = torch.tensor(list(
+                    possible_id_set.difference(protected_ids)
+                ))
+                scores[i, banned_ids] = -float('inf')
+
+        return scores

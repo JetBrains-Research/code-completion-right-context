@@ -14,6 +14,7 @@ class GPT2Model(BaseModel):
             head_size: int,
             n_layers: int,
             n_heads: int,
+            dropout: float,
             is_raw_output: bool = False,
     ):
         """
@@ -27,6 +28,7 @@ class GPT2Model(BaseModel):
         head_size : int
         n_layers : int
         n_heads : int
+        dropout: float
         is_raw_output : bool
             If True then use as output raw output of transformer gpt.
         """
@@ -38,6 +40,9 @@ class GPT2Model(BaseModel):
             n_embd=head_size,
             n_layer=n_layers,
             n_head=n_heads,
+            resid_pdrop=dropout,
+            embd_pdrop=dropout,
+            attn_pdrop=dropout,
         )
         self.gpt = transformers.GPT2LMHeadModel(gpt2_config)
         self.gpt.lm_head.weight = self.gpt.transformer.wte.weight
@@ -60,7 +65,7 @@ class GPT2Model(BaseModel):
     def get_next_token_scores(self, input_ids, attention_mask=None, past=None, use_cache=None):
         # only last token is needed
         if past:
-            input_ids = input_ids[:, -1].unsqueeze(-1)
+            input_ids = input_ids[:, -1].unsqueeze(-1)         
 
         transformer_outputs = self.gpt.transformer(
             input_ids=input_ids,
@@ -80,13 +85,7 @@ class GPT2Model(BaseModel):
 
         return logits, new_past
 
-    @property
-    def device(self):
-        some_weights = next(iter(self.parameters()))
-        return some_weights.device
-
 
 def load_weights_from_adaptive_to_base(destination_model, adaptive_model):
-    apadtive_model_gpt_state_dict = adaptive_model.gpt.state_dict()
-    destination_model.gpt.transformer.load_state_dict(apadtive_model_gpt_state_dict)
-
+    adaptive_model_gpt_state_dict = adaptive_model.gpt.state_dict()
+    destination_model.gpt.transformer.load_state_dict(adaptive_model_gpt_state_dict)

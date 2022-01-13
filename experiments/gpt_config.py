@@ -3,33 +3,41 @@ import torch.optim as optim
 
 from functools import partial
 
+
 class Config:
     # global parameters
-    HOME_DIR = '/home/popov'
-    DATA_DIR = '/home/popov/data/rcompletion/tokenized_data_1806'
-    WANDB_GROUP = 'gpt'
-    MODEL_NAME = 'gpt2'
+    HOME_DIR = '/home/porkhun/model_training/practice/random_shift/2_20'
+    # HOME_DIR = '/home/porkhun/model_training/practice/try'
+    DATA_DIR = '/mnt/data/porkhun/practice/preprocessed_data'
+    # DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
+    WANDB_GROUP = 'Rcompletion'
+    MODEL_NAME = 'BiGPT-128'
+    TYPE_MODEL = 'BiGPT2'  # 'GPT2' or 'BiGPT2'
     CHECKPOINT_PATH = None
+    MODEL_ADDITIONAL_ARGUMENTS = {}
 
     # dataset mode
-    DATASET_TRAIN_MODE = 'lm' # lm or padding or chunks
-    DATASET_VALID_MODE = 'lm' # lm or padding or chunks
-    DATASET_ADDITIONAL_ARGUMENTS = dict()
+    DATASET_TRAIN_MODE = 'lm'  # lm or padding or chunks
+    DATASET_VALID_MODE = 'lm'  # lm or padding or chunks
+    DATASET_ADDITIONAL_ARGUMENTS = {
+        'shifts': list(range(2, 26))
+    }
 
     # tokenizer parameters
-    TOKENIZER = 'bert'
+    TOKENIZER = 'bpe'
     VOCAB_SIZE = 16
 
     # model parameters
-    DROPOUT = 0.1
-    N_LAYERS = 4
-    N_HEADS = 8
-    HEAD_SIZE = 256
+    DROPOUT = 0.1  # for right context model or all if gpt2
+    N_LAYERS = 2
+    N_HEADS = 4
+    HEAD_SIZE = 128
 
     # training constant parameters
-    BATCH_SIZE = 128
+    BATCH_SIZE = 40
     SEQUENCE_LENGTH = 512
-    N_EPOCH = 10
+    N_EPOCH = 30
+    NUM_WORKERS = 1
 
     # optimization classes
     # must NOT be initialized here!

@@ -1,10 +1,11 @@
 import os
 import json
 
+import joblib
 import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-import joblib
+
 
 
 class LanguageModelDataset(Dataset):
@@ -16,6 +17,7 @@ class LanguageModelDataset(Dataset):
             sequence_length=512,
             batch_first=False,
             use_first_n_objects=None,
+            **kwargs
     ):
         """
 
@@ -23,7 +25,7 @@ class LanguageModelDataset(Dataset):
         ----------
         text : numpy ndarray
             Array of token indexes.
-        text_list : list of list of int
+        text_list : list with list of int
             Each element is one document token indexes.
         reshuffle : bool
             If True then shuffle all data after each epoch.
@@ -120,7 +122,8 @@ class DatasetLoaderInitializer:
             sequence_length, batch_size, num_workers,
             use_first_n_objects=None,
             train_mode='padding', valid_mode='lm',
-            shuffle_dataset='auto'
+            shuffle_dataset='auto',
+            **kwargs
     ):
         """
 
@@ -165,7 +168,7 @@ class DatasetLoaderInitializer:
             folder_with_chunks=folder_name,
             use_first_n_objects=self.use_first_n_objects,
         )
-
+        
         shuffle = True if data_type == 'train' else False
         loader = DataLoader(
             dataset,
@@ -188,7 +191,6 @@ class DatasetLoaderInitializer:
             shuffle_dataset = True
         else:
             raise TypeError('unknown shuffle_dataset value')
-
         dataset = LanguageModelDataset(
             text_list=data,
             sequence_length=self.sequence_length,

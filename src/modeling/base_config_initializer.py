@@ -1,8 +1,7 @@
 import os
 import shutil
 
-from catalyst import dl
-from catalyst.utils import load_checkpoint, unpack_checkpoint
+from catalyst import callbacks as catalyst_callbacks
 
 from .dataset import DatasetLoaderInitializer
 
@@ -18,7 +17,6 @@ class BaseConfigInitializer:
 
     def init_dataset_and_loaders(self):
         config = self.config
-
         initializer = DatasetLoaderInitializer(
             data_dir=config.DATA_DIR,
             tokenizer_name=config.TOKENIZER,
@@ -37,7 +35,6 @@ class BaseConfigInitializer:
 
     def reset_logdir(self):
         config = self.config
-
         logdir = (
             f'{config.HOME_DIR}/logs/'
             f'{config.WANDB_GROUP}_{config.model_name}'
@@ -46,7 +43,7 @@ class BaseConfigInitializer:
             shutil.rmtree(logdir)
         except FileNotFoundError:
             pass
-        os.mkdir(logdir)
+        os.makedirs(logdir, exist_ok=True)
 
         return logdir
 
@@ -92,28 +89,39 @@ class BaseConfigInitializer:
         callbacks : list of catalyst callbacks
         """
         config = self.config
-
-        if hasattr(config, 'SAVED_CHECKPOINT_AMOUNT'):
-            saved_checkpoint_amount = config.SAVED_CHECKPOINT_AMOUNT
-        else:
-            saved_checkpoint_amount = 3
-
+        
         callbacks = [
-            dl.callbacks.EarlyStoppingCallback(saved_checkpoint_amount),
-            dl.callbacks.CheckpointCallback(saved_checkpoint_amount),
+            catalyst_callbacks.EarlyStoppingCallback(
+                3,
+                loader_key="valid",
+                metric_key="loss",
+                minimize=True
+            ),
+            catalyst_callbacks.CheckpointCallback(
+                config.HOME_DIR,
+                loader_key="valid",
+                metric_key="loss",
+                minimize=True,
+                resume=config.CHECKPOINT_PATH,
+            ),
+            catalyst_callbacks.SchedulerCallback(
+                loader_key="train", metric_key="loss"
+            ),
         ]
 
         if config.MAX_NORM is not None:
-            optimizer_callback = dl.callbacks.OptimizerCallback(
+            optimizer_callback = catalyst_callbacks.OptimizerCallback(
+                metric_key="loss",
                 accumulation_steps=config.ACCUMULATION_STEPS,
+                grad_clip_fn="clip_grad_norm_",
                 grad_clip_params={
-                    "func": "clip_grad_norm_",
                     "max_norm": config.MAX_NORM,
                     "norm_type": 2
                 }
             )
         else:
-            optimizer_callback = dl.callbacks.OptimizerCallback(
+            optimizer_callback = catalyst_callbacks.OptimizerCallback(
+                metric_key="loss",
                 accumulation_steps=config.ACCUMULATION_STEPS,
             )
         callbacks.append(optimizer_callback)
@@ -121,7 +129,9 @@ class BaseConfigInitializer:
         if hasattr(config, 'SCHEDULER_MODE') and config.SCHEDULER_MODE is not None:
             for scheduler_key, scheduler_mode in config.SCHEDULER_MODE.items():
                 callbacks.append(
-                    dl.callbacks.SchedulerCallback(scheduler_key=scheduler_key, mode=scheduler_mode)
+                    catalyst_callbacks.SchedulerCallback(
+                        loader_key="train", metric_key="loss"
+                    )
                 )
 
         return callbacks
@@ -140,20 +150,7 @@ class BaseConfigInitializer:
         callbacks : list of catalyst callbacks
         """
         callbacks = self._init_base_callbacks()
-        callbacks.append(self.init_logging_callback(logdir))
         return callbacks
-
-    def _unpack_checkpoint(self, model, criterion, optimizer):
-        if self.config.CHECKPOINT_PATH is not None:
-            checkpoint = load_checkpoint(self.config.CHECKPOINT_PATH)
-            model = model.cuda()
-            unpack_checkpoint(
-                checkpoint,
-                model=model,
-                criterion=criterion,
-                optimizer=optimizer,
-            )
-        return model
 
     def init_all(self):
         """
@@ -168,8 +165,6 @@ class BaseConfigInitializer:
         model = self.init_model()
         criterion = self.init_criterion()
         optimizer, scheduler = self.init_optimizer_and_scheduler(model, loaders)
-        model = self._unpack_checkpoint(model, criterion, optimizer)
-        model = model.cpu()
 
         logdir = self.reset_logdir()
         callbacks = self.init_callbacks(logdir, criterion=criterion)
@@ -188,7 +183,4 @@ class BaseConfigInitializer:
         return training_parameters
 
     def init_model(self):
-        raise NotImplementedError
-
-    def init_logging_callback(self, logdir):
         raise NotImplementedError
