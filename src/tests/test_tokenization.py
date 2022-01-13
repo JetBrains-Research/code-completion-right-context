@@ -68,7 +68,6 @@ def construct_spm_tokenizer():
             f'--character_coverage=1 '
             f'--model_type=bpe '
             f'--split_by_unicode_script=true '
-            f'--minloglevel=3 '
         )
         tokenizer = SentencepieceTokenizerWrapper(f'{d_model}/tok.model')
 
