@@ -23,8 +23,9 @@ class BiGPTDataset(Dataset):
 
         Parameters
         ----------
-        text : numpy ndarray
-            Array of token indexes.
+        text : list of int
+            List of token indexes.
+            ALl documents are collapsed in a one list.
         text_list : list of list of int
             Each element is one document token indexes.
         reshuffle : bool
@@ -38,18 +39,18 @@ class BiGPTDataset(Dataset):
             Shift of the right_to_left model.
         """
         super(BiGPTDataset, self).__init__()
-        if right_to_left_model_shifts is None:
-            right_to_left_model_shifts = [2]
         assert isinstance(right_to_left_model_shifts, list)
         if text is not None and text_list is not None:
             raise TypeError('only one of the arguments text and text_list must be specifed')
         if text is None and text_list is None:
             raise TypeError('one of the arguments text and text_list must be specifed')
 
+        if right_to_left_model_shifts is None:
+            right_to_left_model_shifts = [2]
         if len(right_to_left_model_shifts) < 0 or any(x < 2 for x in right_to_left_model_shifts):
             raise TypeError(
-                f'''All values in right_to_left_model_shift must be greater than 2.
-You give {right_to_left_model_shifts}'''
+                f'''All values in right_to_left_model_shift must be greater than 2.'''
+                f'''You give {right_to_left_model_shifts}'''
             )
 
         self.sequence_length = sequence_length
@@ -84,18 +85,16 @@ You give {right_to_left_model_shifts}'''
         # get random shift from sequence
         random_shift = choice(self.right_to_left_model_shifts)
 
-        l_to_r_first_index = i * self.sequence_length
-        l_to_r_last_index = l_to_r_first_index + self.sequence_length
-        left_to_right_text = self.text[l_to_r_first_index: l_to_r_last_index]
+        left_to_right_first_index = i * self.sequence_length
+        left_to_right_last_index = left_to_right_first_index + self.sequence_length
+        left_to_right_text = self.text[left_to_right_first_index:left_to_right_last_index]
 
-        r_to_l_first_index = i * self.sequence_length + random_shift
-        r_to_l_last_index = r_to_l_first_index + self.sequence_length
-        right_to_left_text = self.text[
-                             r_to_l_first_index: r_to_l_last_index
-                             ][::-1]
+        right_to_left_first_index = i * self.sequence_length + random_shift
+        right_to_left_last_index = right_to_left_first_index + self.sequence_length
+        right_to_left_text = self.text[right_to_left_first_index:right_to_left_last_index][::-1]
 
-        target_first_index = l_to_r_first_index + 1
-        target_last_index = l_to_r_last_index + 1
+        target_first_index = left_to_right_first_index + 1
+        target_last_index = left_to_right_last_index + 1
         target_sequence = self.text[target_first_index:target_last_index]
 
         left_to_right_tensor = torch.tensor(left_to_right_text).long()
