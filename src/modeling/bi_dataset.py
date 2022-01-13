@@ -23,8 +23,9 @@ class BiGPTDataset(Dataset):
 
         Parameters
         ----------
-        text : numpy ndarray
-            Array of token indexes.
+        text : list of int
+            List of token indexes.
+            ALl documents are collapsed in a one list.
         text_list : list of list of int
             Each element is one document token indexes.
         reshuffle : bool
