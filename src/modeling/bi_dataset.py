@@ -39,18 +39,18 @@ class BiGPTDataset(Dataset):
             Shift of the right_to_left model.
         """
         super(BiGPTDataset, self).__init__()
-        if right_to_left_model_shifts is None:
-            right_to_left_model_shifts = [2]
         assert isinstance(right_to_left_model_shifts, list)
         if text is not None and text_list is not None:
             raise TypeError('only one of the arguments text and text_list must be specifed')
         if text is None and text_list is None:
             raise TypeError('one of the arguments text and text_list must be specifed')
 
+        if right_to_left_model_shifts is None:
+            right_to_left_model_shifts = [2]
         if len(right_to_left_model_shifts) < 0 or any(x < 2 for x in right_to_left_model_shifts):
             raise TypeError(
-                f'''All values in right_to_left_model_shift must be greater than 2.
-You give {right_to_left_model_shifts}'''
+                f'''All values in right_to_left_model_shift must be greater than 2.'''
+                f'''You give {right_to_left_model_shifts}'''
             )
 
         self.sequence_length = sequence_length
