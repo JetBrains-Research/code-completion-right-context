@@ -165,8 +165,12 @@ class AutocompletionModel:
 
         # don't use last token because it is EOS token
         start_index = max(0, len(ids) - 1 - self.model.max_context_length + self.max_tokens_amount)
-        ids = torch.tensor(ids[start_index:-1]).long().view(1, -1)\
+        ids = (
+            torch.tensor(ids[start_index:-1])
+            .long()
+            .view(1, -1)
             .to(self.model.device)
+        )
 
         old_name_to_new = preprocessing_result['old_name_to_new']
         last_token = preprocessing_result['last_token']
