@@ -39,9 +39,11 @@ def create_parser():
     return parser
 
 
-def parse_arguments(config):
+def parse_arguments():
     parser = create_parser()
     namespace = parser.parse_args(sys.argv[1:])
+    config = load_module(namespace.config).Config
+
     model_name = (
         namespace.name
         if namespace.name is not None

@@ -21,7 +21,7 @@ if __name__ == '__main__':
     extra_runner_kwargs = {}
     extra_logger_kwargs = {}
 
-    train_config = parse_arguments(Config)
+    train_config = parse_arguments()
 
     np.random.seed(train_config.SEED)
 
