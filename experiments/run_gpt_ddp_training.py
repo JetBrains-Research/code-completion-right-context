@@ -11,14 +11,14 @@ from src.utils.cli_parser import parse_arguments
 from src.modeling.gpt2_config_initializer import GPT2ConfigInitializer
 from src.modeling.bi_gpt2_config_initializer import BiGPT2ConfigInitializer
 
-from gpt_config import Config
 from ddp_models import DDPParameters, DDPSupervisedRunner, create_train_config
+
 
 if __name__ == '__main__':
     extra_runner_kwargs = {}
     extra_logger_kwargs = {}
 
-    train_config = parse_arguments(Config)
+    train_config = parse_arguments()
 
     np.random.seed(train_config.SEED)
 

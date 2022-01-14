@@ -25,10 +25,6 @@ def create_parser():
         help='Path to the config file.',
     )
     parser.add_argument(
-        '-n', '--name',
-        help='Model name. Name will be used for log name and wandb name.',
-    )
-    parser.add_argument(
         '-u', '--use_first_n_objects', type=int_or_none, default=None,
         help='Use only first n objects in dataset. Use it for debug.',
     )
@@ -39,19 +35,13 @@ def create_parser():
     return parser
 
 
-def parse_arguments(config):
+def parse_arguments():
     parser = create_parser()
     namespace = parser.parse_args(sys.argv[1:])
-    model_name = (
-        namespace.name
-        if namespace.name is not None
-        else f'{config.WANDB_GROUP}_{config.WANDB_GROUP}_{namespace.config}'
-    )
-
+    config = load_module(namespace.config)
     # save all information to config fields
     config.use_distributed_mode = namespace.distributed
     config.use_first_n_objects = namespace.use_first_n_objects
-    config.model_name = model_name
     config.config_name = namespace.config
 
     return config
