@@ -14,6 +14,9 @@ from src.modeling.bi_gpt2_config_initializer import BiGPT2ConfigInitializer
 from gpt_config import Config
 from ddp_models import DDPParameters, DDPSupervisedRunner, create_train_config
 
+from checkpoint_callback import SaveCheckpointCallback
+
+
 if __name__ == '__main__':
     extra_runner_kwargs = {}
     extra_logger_kwargs = {}
@@ -42,6 +45,13 @@ if __name__ == '__main__':
         runner_initializer = dl.SupervisedRunner
 
     runner = runner_initializer(**extra_runner_kwargs)
+
+    training_parameters['callbacks'].append(
+        SaveCheckpointCallback(
+            n_epochs=2,
+            log_dir='/home/popov/logs/long_gpt',
+        )
+    )
 
     runner.train(
         model=training_parameters['model'],
