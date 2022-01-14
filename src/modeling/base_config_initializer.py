@@ -12,6 +12,7 @@ class BaseConfigInitializer:
 
     Use this class to initialize model from .py config.
     """
+
     def __init__(self, config):
         self.config = config
 
@@ -35,10 +36,7 @@ class BaseConfigInitializer:
 
     def reset_logdir(self):
         config = self.config
-        logdir = (
-            f'{config.HOME_DIR}/logs/'
-            f'{config.WANDB_GROUP}_{config.model_name}'
-        )
+        logdir = f'{config.HOME_DIR}/logs/'
         try:
             shutil.rmtree(logdir)
         except FileNotFoundError:
@@ -89,7 +87,7 @@ class BaseConfigInitializer:
         callbacks : list of catalyst callbacks
         """
         config = self.config
-        
+
         callbacks = [
             catalyst_callbacks.EarlyStoppingCallback(
                 3,
