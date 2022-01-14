@@ -29,8 +29,8 @@ def create_parser():
         help='Use only first n objects in dataset. Use it for debug.',
     )
     parser.add_argument(
-        '-d', '--distributed', type=parse_bool, default=False,
-        help='Whether or not to use the distributional training mode.',
+        '-distributed', action='store_true',
+        help='Use the distributional training mode.',
     )
     return parser
 
