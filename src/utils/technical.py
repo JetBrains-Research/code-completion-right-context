@@ -76,4 +76,3 @@ def annotations_from_parent(child_class):
             setattr(child_class, method_name, wrapped_child_method)
 
     return child_class
-
