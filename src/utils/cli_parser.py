@@ -38,7 +38,8 @@ def create_parser():
 def parse_arguments():
     parser = create_parser()
     namespace = parser.parse_args(sys.argv[1:])
-    config = load_module(namespace.config).Config
+    module = load_module(namespace.config)
+    config = module.Config
     # save all information to config fields
     config.use_distributed_mode = namespace.distributed
     config.use_first_n_objects = namespace.use_first_n_objects
