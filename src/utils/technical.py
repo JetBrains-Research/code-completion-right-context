@@ -1,7 +1,8 @@
-import importlib
 import inspect
 
+from os import path
 from typeguard import typechecked
+from importlib.machinery import SourceFileLoader
 
 
 def load_module(script_path):
@@ -17,11 +18,9 @@ def load_module(script_path):
     -------
     model_script : module
     """
-    spec = importlib.util.spec_from_file_location("model_script", script_path)
-    model_script = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(model_script)
-
-    return model_script
+    script_name_with_ext = path.split(script_path)[1]
+    script_name_without_ext = path.splitext(script_name_with_ext)[0]
+    return SourceFileLoader(script_name_without_ext, script_path).load_module()
 
 
 def annotations_from_parent(child_class):
@@ -77,3 +76,4 @@ def annotations_from_parent(child_class):
             setattr(child_class, method_name, wrapped_child_method)
 
     return child_class
+
