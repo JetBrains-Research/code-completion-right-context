@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from typing import Tuple, Optional, Union
 
 import torch
@@ -22,6 +24,7 @@ class BiGPTModel(BaseModel):
             n_layers: int,
             n_heads: int,
             dropout: float,
+            **kwargs
     ):
         """
 
@@ -35,24 +38,51 @@ class BiGPTModel(BaseModel):
         n_layers : int
         n_heads : int
         dropout: float
+        kwargs: dict
         """
         super(BiGPTModel, self).__init__()
 
+        left_params = {
+            'vocab_size': vocab_size,
+            'n_positions': sequence_length,
+            'n_ctx': sequence_length,
+            'n_embd': head_size,
+            'n_layer': n_layers,
+            'n_head': n_heads,
+            'resid_pdrop': dropout,
+            'embd_pdrop': dropout,
+            'attn_pdrop': dropout,
+        }
+        right_params = deepcopy(left_params)
+        if 'RIGHT_DROPOUT' in kwargs:
+            right_params['resid_pdrop'] = kwargs['RIGHT_DROPOUT']
+            right_params['embd_pdrop'] = kwargs['RIGHT_DROPOUT']
+            right_params['attn_pdrop'] = kwargs['RIGHT_DROPOUT']
+        if 'RIGHT_HEAD_SIZE' in kwargs:
+            right_params['n_embd'] = kwargs['RIGHT_HEAD_SIZE']
+        is_stack = kwargs.get('STACK', False)
+
         # both parts have the same amount of parameters
-        gpt2_config = transformers.GPT2Config(
-            vocab_size=vocab_size,
-            n_positions=sequence_length,
-            n_ctx=sequence_length,
-            n_embd=head_size,
-            n_layer=n_layers,
-            n_head=n_heads,
-            resid_pdrop=dropout,
-            embd_pdrop=dropout,
-            attn_pdrop=dropout,
-        )
-        self.gpt_left_to_right = transformers.GPT2Model(gpt2_config)
-        self.gpt_right_to_left = transformers.GPT2Model(gpt2_config)
-        self.lm_head = nn.Linear(head_size * 2, vocab_size)
+        left_gpt2_config = transformers.GPT2Config(**left_params)
+        right_gpt2_config = transformers.GPT2Config(**right_params)
+
+        self.gpt_left_to_right = transformers.GPT2Model(left_gpt2_config)
+        self.gpt_right_to_left = transformers.GPT2Model(right_gpt2_config)
+        if is_stack:
+            self.lm_head = nn.Sequential(
+                nn.Linear(right_params['n_embd']+left_params['n_embd'], head_size),
+                nn.LeakyReLU(0.1),
+                nn.Linear(head_size, vocab_size),
+            )
+        else:
+            self.lm_head = nn.Linear(right_params['n_embd']+left_params['n_embd'], vocab_size)
+
+        if kwargs.get('ONE_WPE', False):
+            self.gpt_right_to_left.wpe = self.gpt_left_to_right.wpe
+        if kwargs.get('ONE_WTE', False) and right_params['n_embd'] == left_params['n_embd']:
+            self.gpt_right_to_left.wte = self.gpt_left_to_right.wte
+        if is_stack and kwargs.get('INIT_LM_FROM_WTE', False):
+            self.lm_head.weight = self.gpt_left_to_right.wte.weight
 
         self._sequence_length = sequence_length
 

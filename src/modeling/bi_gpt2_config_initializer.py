@@ -13,6 +13,7 @@ class BiGPT2ConfigInitializer(BaseConfigInitializer):
             n_layers=self.config.N_LAYERS,
             n_heads=self.config.N_HEADS,
             dropout=self.config.DROPOUT,
+            **self.config.ADDITIONAL_BI_GPT_PARAMS,
         )
         return model
 

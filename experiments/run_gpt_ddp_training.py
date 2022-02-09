@@ -1,5 +1,8 @@
+import json
 import sys
 import warnings
+
+from os.path import join as path_join
 
 sys.path.append('../')
 warnings.filterwarnings("ignore")
@@ -21,6 +24,9 @@ if __name__ == '__main__':
     train_config = parse_arguments()
 
     np.random.seed(train_config.SEED)
+
+    with open(path_join(train_config.HOME_DIR, '_config.json'), 'w') as f:
+        json.dump(create_train_config(train_config), f)
 
     if train_config.TYPE_MODEL == 'GPT2':
         initializer = GPT2ConfigInitializer(config=train_config)

@@ -20,7 +20,7 @@ class Config:
     DATASET_TRAIN_MODE = 'lm'  # lm or padding or chunks
     DATASET_VALID_MODE = 'lm'  # lm or padding or chunks
     DATASET_ADDITIONAL_ARGUMENTS = {
-        'shifts': list(range(2, 26))
+        'SHIFTS': list(range(2, 26))
     }
 
     # tokenizer parameters
@@ -28,10 +28,19 @@ class Config:
     VOCAB_SIZE = 16
 
     # model parameters
-    DROPOUT = 0.1  # for right context model or all if gpt2
+    DROPOUT = 0.1
     N_LAYERS = 2
     N_HEADS = 4
     HEAD_SIZE = 128
+
+    ADDITIONAL_BI_GPT_PARAMS = {
+        'RIGHT_DROPOUT': 0.1,
+        'RIGHT_HEAD_SIZE': 128,
+        'STACK': True,
+        'ONE_WPE': False,
+        'ONE_WTE': True,
+        'INIT_LM_FROM_WTE': False,
+    }
 
     # training constant parameters
     BATCH_SIZE = 40
