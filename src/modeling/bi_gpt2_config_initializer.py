@@ -13,7 +13,12 @@ class BiGPT2ConfigInitializer(BaseConfigInitializer):
             n_layers=self.config.N_LAYERS,
             n_heads=self.config.N_HEADS,
             dropout=self.config.DROPOUT,
-            **self.config.ADDITIONAL_BI_GPT_PARAMS,
+            right_dropout=self.config.RIGHT_DROPOUT,
+            right_head_size=self.config.RIGHT_HEAD_SIZE,
+            stack_right_left=self.config.STACK,
+            one_wpe=self.config.ONE_WPE,
+            one_wte=self.config.ONE_WTE,
+            init_lm_as_wte=self.config.INIT_LM_FROM_WTE,
         )
         return model
 

@@ -24,7 +24,12 @@ class BiGPTModel(BaseModel):
             n_layers: int,
             n_heads: int,
             dropout: float,
-            **kwargs
+            right_dropout=None,
+            right_head_size=None,
+            stack_right_left=False,
+            one_wpe=False,
+            one_wte=False,
+            init_lm_as_wte=False,
     ):
         """
 
@@ -38,7 +43,7 @@ class BiGPTModel(BaseModel):
         n_layers : int
         n_heads : int
         dropout: float
-        kwargs: dict
+        right_model_params: dataclass with parameters
         """
         super(BiGPTModel, self).__init__()
 
@@ -54,13 +59,16 @@ class BiGPTModel(BaseModel):
             'attn_pdrop': dropout,
         }
         right_params = deepcopy(left_params)
-        if 'RIGHT_DROPOUT' in kwargs:
-            right_params['resid_pdrop'] = kwargs['RIGHT_DROPOUT']
-            right_params['embd_pdrop'] = kwargs['RIGHT_DROPOUT']
-            right_params['attn_pdrop'] = kwargs['RIGHT_DROPOUT']
-        if 'RIGHT_HEAD_SIZE' in kwargs:
-            right_params['n_embd'] = kwargs['RIGHT_HEAD_SIZE']
-        is_stack = kwargs.get('STACK', False)
+        if right_dropout is not None:
+            right_params['resid_pdrop'] = right_dropout
+            right_params['embd_pdrop'] = right_dropout
+            right_params['attn_pdrop'] = right_dropout
+        if right_head_size is not None:
+            right_params['n_embd'] = right_head_size
+            # is_stack = right_model_params.STACK
+            # one_wpe = right_model_params.ONE_WPE
+            # one_wte = right_model_params.ONE_WTE
+            # init_lm_as_wte = right_model_params.INIT_LM_FROM_WTE
 
         # both parts have the same amount of parameters
         left_gpt2_config = transformers.GPT2Config(**left_params)
@@ -68,7 +76,7 @@ class BiGPTModel(BaseModel):
 
         self.gpt_left_to_right = transformers.GPT2Model(left_gpt2_config)
         self.gpt_right_to_left = transformers.GPT2Model(right_gpt2_config)
-        if is_stack:
+        if stack_right_left:
             self.lm_head = nn.Sequential(
                 nn.Linear(right_params['n_embd']+left_params['n_embd'], head_size),
                 nn.LeakyReLU(0.1),
@@ -77,11 +85,11 @@ class BiGPTModel(BaseModel):
         else:
             self.lm_head = nn.Linear(right_params['n_embd']+left_params['n_embd'], vocab_size)
 
-        if kwargs.get('ONE_WPE', False):
+        if one_wpe:
             self.gpt_right_to_left.wpe = self.gpt_left_to_right.wpe
-        if kwargs.get('ONE_WTE', False) and right_params['n_embd'] == left_params['n_embd']:
+        if one_wte and right_params['n_embd'] == left_params['n_embd']:
             self.gpt_right_to_left.wte = self.gpt_left_to_right.wte
-        if is_stack and kwargs.get('INIT_LM_FROM_WTE', False):
+        if stack_right_left and init_lm_as_wte:
             self.lm_head.weight = self.gpt_left_to_right.wte.weight
 
         self._sequence_length = sequence_length

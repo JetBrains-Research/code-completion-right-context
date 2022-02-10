@@ -33,14 +33,12 @@ class Config:
     N_HEADS = 4
     HEAD_SIZE = 128
 
-    ADDITIONAL_BI_GPT_PARAMS = {
-        'RIGHT_DROPOUT': 0.1,
-        'RIGHT_HEAD_SIZE': 128,
-        'STACK': True,
-        'ONE_WPE': False,
-        'ONE_WTE': True,
-        'INIT_LM_FROM_WTE': False,
-    }
+    RIGHT_DROPOUT: float = 0.1  # default None
+    RIGHT_HEAD_SIZE: int = 128  # default None
+    STACK: bool = True  # default False
+    ONE_WPE: bool = False  # default False
+    ONE_WTE: bool = True  # default False
+    INIT_LM_FROM_WTE: bool = False  # default False
 
     # training constant parameters
     BATCH_SIZE = 40
