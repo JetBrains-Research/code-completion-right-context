@@ -65,10 +65,6 @@ class BiGPTModel(BaseModel):
             right_params['attn_pdrop'] = right_dropout
         if right_head_size is not None:
             right_params['n_embd'] = right_head_size
-            # is_stack = right_model_params.STACK
-            # one_wpe = right_model_params.ONE_WPE
-            # one_wte = right_model_params.ONE_WTE
-            # init_lm_as_wte = right_model_params.INIT_LM_FROM_WTE
 
         # both parts have the same amount of parameters
         left_gpt2_config = transformers.GPT2Config(**left_params)
