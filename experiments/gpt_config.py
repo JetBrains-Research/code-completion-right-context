@@ -20,7 +20,7 @@ class Config:
     DATASET_TRAIN_MODE = 'lm'  # lm or padding or chunks
     DATASET_VALID_MODE = 'lm'  # lm or padding or chunks
     DATASET_ADDITIONAL_ARGUMENTS = {
-        'SHIFTS': list(range(2, 26))
+        'SHIFTS': list(range(10, 26))
     }
 
     # tokenizer parameters
@@ -33,7 +33,7 @@ class Config:
     N_HEADS = 4
     HEAD_SIZE = 128
 
-    RIGHT_DROPOUT: float = 0.1  # default None
+    RIGHT_DROPOUT: float = 0.2  # default None
     RIGHT_HEAD_SIZE: int = 128  # default None
     STACK: bool = True  # default False
     ONE_WPE: bool = False  # default False
@@ -44,12 +44,12 @@ class Config:
     BATCH_SIZE = 40
     SEQUENCE_LENGTH = 512
     N_EPOCH = 30
-    NUM_WORKERS = 1
+    NUM_WORKERS = 2
 
     # optimization classes
     # must NOT be initialized here!
     CRITERION_CLASS = partial(nn.CrossEntropyLoss, ignore_index=0)
-    OPTIMIZER_CLASS = optim.Adam
+    OPTIMIZER_CLASS = optim.AdamW
     OPTIMIZER_ADDITIONAL_ARGUMENTS = {
         'lr': 1e-3,
     }

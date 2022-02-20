@@ -10,11 +10,10 @@ warnings.filterwarnings("ignore")
 import numpy as np
 from catalyst import dl
 
+from ddp_models import DDPParameters, DDPSupervisedRunner, create_train_config
 from src.utils.cli_parser import parse_arguments
 from src.modeling.gpt2_config_initializer import GPT2ConfigInitializer
 from src.modeling.bi_gpt2_config_initializer import BiGPT2ConfigInitializer
-
-from ddp_models import DDPParameters, DDPSupervisedRunner, create_train_config
 
 
 if __name__ == '__main__':
@@ -61,11 +60,4 @@ if __name__ == '__main__':
         ddp=train_config.use_distributed_mode,
         callbacks=training_parameters['callbacks'],
         verbose=True,
-        # amp=False,
-        loggers={'wandb': dl.WandbLogger(
-            project=train_config.WANDB_GROUP,
-            name=train_config.MODEL_NAME,
-            config=create_train_config(train_config),
-            **extra_logger_kwargs
-        )}
     )
