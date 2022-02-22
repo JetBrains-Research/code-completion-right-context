@@ -9,8 +9,6 @@ from torch.utils.data import (
     DistributedSampler,
 )
 
-from gpt_config import Config
-
 
 class TypeModel(Enum):
     CNN = 'CNN'
@@ -41,7 +39,7 @@ class RightEmbeddingConfig:
 @dataclass
 class DDPParameters:
     datasets: Dict[str, Dataset]
-    config: Config
+    config: Dict[str, str]
 
 
 class DDPSupervisedRunner(dl.SupervisedRunner):
@@ -82,7 +80,7 @@ class DDPSupervisedRunner(dl.SupervisedRunner):
         return {'train': train_loader, 'valid': valid_loader}
 
 
-def create_train_config(config: Config):
+def create_train_config(config):
     return {
         'model_name': config.MODEL_NAME,
         'sequence_length': config.SEQUENCE_LENGTH,
