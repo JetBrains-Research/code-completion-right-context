@@ -11,7 +11,7 @@ from ..utils.technical import annotations_from_parent
 from .base_model import BaseModel
 
 
-def run_right_gpt(model, reverted_input_tensor):
+def run_right_gpt(reverted_input_tensor, model):
     right_to_left_output = model.forward(reverted_input_tensor)
     right_to_left_reverted_back_output = torch.flip(
         right_to_left_output[0],
@@ -20,7 +20,7 @@ def run_right_gpt(model, reverted_input_tensor):
     return right_to_left_reverted_back_output
 
 
-def run_right_embedding(wte_model, position_emb, reverted_input_tensor):
+def run_right_embedding(reverted_input_tensor, wte_model, position_emb):
     tokens = wte_model(reverted_input_tensor)
     seq_len = reverted_input_tensor.size(1)
     batch_size = reverted_input_tensor.size(0)
