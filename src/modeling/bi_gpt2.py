@@ -24,8 +24,9 @@ def run_right_embedding(reverted_input_tensor, wte_model, position_emb):
     tokens = wte_model(reverted_input_tensor)
     seq_len = reverted_input_tensor.size(1)
     batch_size = reverted_input_tensor.size(0)
+    device = next(wte_model.parameters()).device
     position_index = torch.flip(torch.arange(seq_len).reshape(1, seq_len), dims=(1,)).repeat(batch_size, 1)
-    return tokens * position_emb(position_index)
+    return tokens * position_emb(position_index.to(device))
 
 
 
