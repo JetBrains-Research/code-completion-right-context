@@ -1,5 +1,6 @@
-from collections import OrderedDict
-from typing import Dict, NamedTuple
+from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List
 
 from catalyst import dl
 from torch.utils.data import (
@@ -11,7 +12,34 @@ from torch.utils.data import (
 from gpt_config import Config
 
 
-class DDPParameters(NamedTuple):
+class TypeModel(Enum):
+    CNN = 'CNN'
+    GPT2 = 'GPT2'
+    EMB = 'EMB'
+
+
+@dataclass
+class RightGPTConfig:
+    DROPOUT: float = None  # default None
+    HEAD_SIZE: int = None  # default None
+
+
+@dataclass
+class RightCNNConfig:
+    WINDOWS_SIZES: List[int] = (2, 3, 4)
+    DEPTHWISE_CONV: bool = False
+    PADDING: int = 3
+
+
+@dataclass
+class RightEmbeddingConfig:
+    NUM_EMBEDDDINGS: int = 512
+    EMBEDDING_DIM: int = 1
+
+
+
+@dataclass
+class DDPParameters:
     datasets: Dict[str, Dataset]
     config: Config
 
@@ -21,7 +49,6 @@ class DDPSupervisedRunner(dl.SupervisedRunner):
     def __init__(self, *args, **kwargs):
         self.__ddp_params: DDPParameters = kwargs.pop('ddp_parameters')
         super().__init__(*args, **kwargs)
-
 
     def get_loaders(self, stage: str):
         if self.engine.is_ddp:

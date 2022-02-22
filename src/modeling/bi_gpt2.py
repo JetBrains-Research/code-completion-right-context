@@ -1,6 +1,7 @@
 from copy import deepcopy
 
-from typing import Tuple, Optional, Union
+from typing import Any, Tuple, Optional, Union
+from functools import partial
 
 import torch
 import torch.nn as nn
@@ -8,6 +9,24 @@ import transformers
 
 from ..utils.technical import annotations_from_parent
 from .base_model import BaseModel
+
+
+def run_right_gpt(model, reverted_input_tensor):
+    right_to_left_output = model.forward(reverted_input_tensor)
+    right_to_left_reverted_back_output = torch.flip(
+        right_to_left_output[0],
+        dims=(1,)
+    )
+    return right_to_left_reverted_back_output
+
+
+def run_right_embedding(wte_model, position_emb, reverted_input_tensor):
+    tokens = wte_model(reverted_input_tensor)
+    seq_len = reverted_input_tensor.size(1)
+    batch_size = reverted_input_tensor.size(0)
+    position_index = torch.flip(torch.arange(seq_len).reshape(1, seq_len), dims=(1,)).repeat(batch_size, 1)
+    return tokens * position_emb(position_index)
+
 
 
 # TODO: return back annotations
@@ -24,12 +43,12 @@ class BiGPTModel(BaseModel):
             n_layers: int,
             n_heads: int,
             dropout: float,
-            right_dropout=None,
-            right_head_size=None,
-            stack_right_left=False,
-            one_wpe=False,
-            one_wte=False,
-            init_lm_as_wte=False,
+            right_model_type: str,
+            right_model_config: Any,
+            stack_right_left: bool = None,
+            one_wpe: bool = None,
+            one_wte: bool = None,
+            lm_equal_emb: bool = None,
     ):
         """
 
@@ -58,24 +77,21 @@ class BiGPTModel(BaseModel):
             'embd_pdrop': dropout,
             'attn_pdrop': dropout,
         }
-        right_params = deepcopy(left_params)
-        if right_dropout is not None:
-            right_params['resid_pdrop'] = right_dropout
-            right_params['embd_pdrop'] = right_dropout
-            right_params['attn_pdrop'] = right_dropout
-        if right_head_size is not None:
-            right_params['n_embd'] = right_head_size
-
-        # both parts have the same amount of parameters
         left_gpt2_config = transformers.GPT2Config(**left_params)
-        right_gpt2_config = transformers.GPT2Config(**right_params)
-
         self.gpt_left_to_right = transformers.GPT2Model(left_gpt2_config)
-        self.gpt_right_to_left = transformers.GPT2Model(right_gpt2_config)
+        right_params = deepcopy(left_params)
+        if right_model_type.value == 'GPT2':
+            self.gpt_right_to_left = self.create_right_gpt(right_params, right_model_config)
+            self.forward_right_context = partial(run_right_gpt, model=self.gpt_right_to_left)
+        if right_model_type.value == 'EMB':
+            self.gpt_right_to_left = nn.Embedding(
+                right_model_config.NUM_EMBEDDDINGS, right_model_config.EMBEDDING_DIM
+            )
+            self.forward_right_context = partial(run_right_embedding, wte_model=self.gpt_left_to_right.wte, position_emb=self.gpt_right_to_left)
+
         if stack_right_left:
             self.lm_head = nn.Sequential(
                 nn.Linear(right_params['n_embd']+left_params['n_embd'], head_size),
-                nn.LeakyReLU(0.1),
                 nn.Linear(head_size, vocab_size),
             )
         else:
@@ -85,7 +101,7 @@ class BiGPTModel(BaseModel):
             self.gpt_right_to_left.wpe = self.gpt_left_to_right.wpe
         if one_wte and right_params['n_embd'] == left_params['n_embd']:
             self.gpt_right_to_left.wte = self.gpt_left_to_right.wte
-        if stack_right_left and init_lm_as_wte:
+        if stack_right_left and lm_equal_emb:
             self.lm_head.weight = self.gpt_left_to_right.wte.weight
 
         self._sequence_length = sequence_length
@@ -93,6 +109,16 @@ class BiGPTModel(BaseModel):
     @property
     def max_context_length(self):
         return self.gpt_left_to_right.config.n_ctx
+
+    @staticmethod
+    def create_right_gpt(gpt_config, right_model_config):
+        if right_model_config.DROPOUT is not None:
+            gpt_config['resid_pdrop'] = right_model_config.DROPOUT
+            gpt_config['embd_pdrop'] = right_model_config.DROPOUT
+            gpt_config['attn_pdrop'] = right_model_config.DROPOUT
+        if right_model_config.HEAD_SIZE is not None:
+            gpt_config['n_embd'] = right_model_config.HEAD_SIZE
+        return transformers.GPT2Model(transformers.GPT2Config(**gpt_config))
 
     def forward(
             self,
@@ -109,15 +135,9 @@ class BiGPTModel(BaseModel):
         """
         # apply each of the network separately
         left_to_right_output = self.gpt_left_to_right.forward(input_tensor)
-        right_to_left_output = self.gpt_right_to_left.forward(
-            reverted_input_tensor
-        )
+        right_to_left_reverted_back_output = self.forward_right_context(reverted_input_tensor)
 
         # we need to revert right-to-left network before the concat
-        right_to_left_reverted_back_output = torch.flip(
-            right_to_left_output[0],
-            dims=(1,)
-        )
 
         # concat both network outputs and apply lm head,
         concatenate_outputs = torch.cat(

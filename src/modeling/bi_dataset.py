@@ -1,3 +1,5 @@
+import gc
+
 from random import choice
 
 import joblib
@@ -75,6 +77,7 @@ class BiGPTDataset(Dataset):
 
         self.text = text
         self._getitem_counter = 0
+        gc.collect()
 
     def __getitem__(self, i):
         if self.reshuffle:

@@ -1,16 +1,14 @@
-import json
 import sys
 import warnings
-
-from os.path import join as path_join
 
 sys.path.append('../')
 warnings.filterwarnings("ignore")
 
 import numpy as np
+
 from catalyst import dl
 
-from ddp_models import DDPParameters, DDPSupervisedRunner, create_train_config
+from ddp_models import DDPParameters, DDPSupervisedRunner
 from src.utils.cli_parser import parse_arguments
 from src.modeling.gpt2_config_initializer import GPT2ConfigInitializer
 from src.modeling.bi_gpt2_config_initializer import BiGPT2ConfigInitializer
@@ -23,9 +21,6 @@ if __name__ == '__main__':
     train_config = parse_arguments()
 
     np.random.seed(train_config.SEED)
-
-    with open(path_join(train_config.HOME_DIR, '_config.json'), 'w') as f:
-        json.dump(create_train_config(train_config), f)
 
     if train_config.TYPE_MODEL == 'GPT2':
         initializer = GPT2ConfigInitializer(config=train_config)

@@ -3,6 +3,13 @@ import torch.optim as optim
 
 from functools import partial
 
+from ddp_models import (
+    RightEmbeddingConfig,
+    RightGPTConfig,
+    RightCNNConfig,
+    TypeModel,
+)
+
 
 class Config:
     # global parameters
@@ -33,12 +40,21 @@ class Config:
     N_HEADS = 4
     HEAD_SIZE = 128
 
-    RIGHT_DROPOUT: float = 0.1  # default None
-    RIGHT_HEAD_SIZE: int = 128  # default None
-    STACK: bool = True  # default False
-    ONE_WPE: bool = False  # default False
-    ONE_WTE: bool = True  # default False
-    INIT_LM_FROM_WTE: bool = False  # default False
+    RIGHT_MODEL_TYPE = TypeModel.EMB
+    STACK_RIGHT_LEFT_FEATURES: bool = True
+    ONE_WPE: bool = False
+    ONE_WTE: bool = False
+    INIT_LM_FROM_WTE: bool = True
+
+    if RIGHT_MODEL_TYPE is TypeModel.GPT2:
+        RIGHT_MODEL_CONFIG = RightGPTConfig(
+            DROPOUT=0.1,
+            HEAD_SIZE=128,
+        )
+    elif RIGHT_MODEL_TYPE is TypeModel.CNN:
+        RIGHT_MODEL_CONFIG = RightCNNConfig()
+    else:
+        RIGHT_MODEL_CONFIG = RightEmbeddingConfig()
 
     # training constant parameters
     BATCH_SIZE = 40
