@@ -100,8 +100,7 @@ class BaseConfigInitializer:
                 loader_key="valid",
                 metric_key="loss",
                 minimize=True,
-                save_n_best=3,
-                resume=config.CHECKPOINT_PATH,
+                resume_model=config.CHECKPOINT_PATH,
             ),
             catalyst_callbacks.SchedulerCallback(
                 loader_key="train", metric_key="loss"
@@ -112,11 +111,11 @@ class BaseConfigInitializer:
             optimizer_callback = catalyst_callbacks.OptimizerCallback(
                 metric_key="loss",
                 accumulation_steps=config.ACCUMULATION_STEPS,
-                # grad_clip_fn="clip_grad_norm_",
-                # grad_clip_params={
-                #     "max_norm": config.MAX_NORM,
-                #     "norm_type": 2
-                # }
+                grad_clip_fn="clip_grad_norm_",
+                grad_clip_params={
+                    "max_norm": config.MAX_NORM,
+                    "norm_type": 2
+                }
             )
         else:
             optimizer_callback = catalyst_callbacks.OptimizerCallback(

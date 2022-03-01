@@ -14,9 +14,7 @@ from ddp_models import (
 class Config:
     # global parameters
     HOME_DIR = '/content/experiment/EXP'
-    # HOME_DIR = '/home/porkhun/model_training/practice/try'
     DATA_DIR = '/content/data'
-    # DATA_DIR = '/mnt/data/porkhun/data/preprocessed_rmd_data/for_ddp_tryes'
     WANDB_GROUP = 'Rcompletion'
     MODEL_NAME = 'BiGPT-128'
     TYPE_MODEL = 'BiGPT2'  # 'GPT2' or 'BiGPT2'
@@ -52,15 +50,19 @@ class Config:
             HEAD_SIZE=128,
         )
     elif RIGHT_MODEL_TYPE is TypeModel.CNN:
-        RIGHT_MODEL_CONFIG = RightCNNConfig()
+        RIGHT_MODEL_CONFIG = RightCNNConfig(
+            WINDOWS_SIZES=[2, 3, 4, 5],
+            DEPTHWISE_CONV=False,
+            PADDING=3,
+        )
     else:
         RIGHT_MODEL_CONFIG = RightEmbeddingConfig()
 
     # training constant parameters
-    BATCH_SIZE = 40
+    BATCH_SIZE = 72
     SEQUENCE_LENGTH = 512
     N_EPOCH = 30
-    NUM_WORKERS = 1
+    NUM_WORKERS = 0
 
     # optimization classes
     # must NOT be initialized here!

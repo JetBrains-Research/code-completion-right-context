@@ -1,6 +1,5 @@
-import numpy as np
 from src.modeling.bi_dataset import BiGPTDataset
-import torch
+
 
 def test_dataset_getitem():
     dataset = BiGPTDataset(

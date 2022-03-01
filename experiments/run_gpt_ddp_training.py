@@ -9,9 +9,9 @@ import numpy as np
 from catalyst import dl
 
 from ddp_models import DDPParameters, DDPSupervisedRunner
-from src.utils.cli_parser import parse_arguments
-from src.modeling.gpt2_config_initializer import GPT2ConfigInitializer
 from src.modeling.bi_gpt2_config_initializer import BiGPT2ConfigInitializer
+from src.modeling.gpt2_config_initializer import GPT2ConfigInitializer
+from src.utils.cli_parser import parse_arguments
 
 
 if __name__ == '__main__':

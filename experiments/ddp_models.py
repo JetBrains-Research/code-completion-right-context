@@ -3,11 +3,7 @@ from enum import Enum
 from typing import Dict, List
 
 from catalyst import dl
-from torch.utils.data import (
-    DataLoader,
-    Dataset,
-    DistributedSampler,
-)
+from torch.utils.data import DataLoader, Dataset, DistributedSampler
 
 
 class TypeModel(Enum):
@@ -31,9 +27,8 @@ class RightCNNConfig:
 
 @dataclass
 class RightEmbeddingConfig:
-    NUM_EMBEDDDINGS: int = 512
+    NUM_EMBEDDINGS: int = 512
     EMBEDDING_DIM: int = 1
-
 
 
 @dataclass

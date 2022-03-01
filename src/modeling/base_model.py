@@ -1,6 +1,5 @@
 from torch import nn as nn
 
-# for annotations
 import torch
 from typing import Iterable, Tuple
 

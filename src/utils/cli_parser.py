@@ -4,20 +4,6 @@ import sys
 from .technical import load_module
 
 
-def int_or_none(value):
-    if value is None or value.strip().lower() == 'none':
-        return None
-    return int(value)
-
-
-def parse_bool(value):
-    if value is True or value.strip().lower() == 'true':
-        return True
-    elif value is False or value.strip().lower() == 'false':
-        return False
-    raise ValueError('Set True or False for -d [--distributed]')
-
-
 def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -25,7 +11,7 @@ def create_parser():
         help='Path to the config file.',
     )
     parser.add_argument(
-        '-u', '--use_first_n_objects', type=int_or_none, default=None,
+        '-u', '--use_first_n_objects', type=int, default=None,
         help='Use only first n objects in dataset. Use it for debug.',
     )
     parser.add_argument(

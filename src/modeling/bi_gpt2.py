@@ -29,7 +29,6 @@ def run_right_embedding(reverted_input_tensor, wte_model, position_emb):
     return tokens * position_emb(position_index.to(device))
 
 
-
 # TODO: return back annotations
 # delete annotations because it raise exception
 # TypeError: different varnames forward: 
@@ -84,19 +83,23 @@ class BiGPTModel(BaseModel):
         if right_model_type.value == 'GPT2':
             self.gpt_right_to_left = self.create_right_gpt(right_params, right_model_config)
             self.forward_right_context = partial(run_right_gpt, model=self.gpt_right_to_left)
-        if right_model_type.value == 'EMB':
+        elif right_model_type.value == 'EMB':
             self.gpt_right_to_left = nn.Embedding(
                 right_model_config.NUM_EMBEDDDINGS, right_model_config.EMBEDDING_DIM
             )
-            self.forward_right_context = partial(run_right_embedding, wte_model=self.gpt_left_to_right.wte, position_emb=self.gpt_right_to_left)
+            self.forward_right_context = partial(
+                run_right_embedding, wte_model=self.gpt_left_to_right.wte, position_emb=self.gpt_right_to_left
+            )
+        else:
+            raise ValueError('Strange right model type')
 
         if stack_right_left:
             self.lm_head = nn.Sequential(
-                nn.Linear(right_params['n_embd']+left_params['n_embd'], head_size),
+                nn.Linear(right_params['n_embd'] + left_params['n_embd'], head_size),
                 nn.Linear(head_size, vocab_size),
             )
         else:
-            self.lm_head = nn.Linear(right_params['n_embd']+left_params['n_embd'], vocab_size)
+            self.lm_head = nn.Linear(right_params['n_embd'] + left_params['n_embd'], vocab_size)
 
         if one_wpe:
             self.gpt_right_to_left.wpe = self.gpt_left_to_right.wpe
@@ -189,7 +192,7 @@ class BiGPTModel(BaseModel):
         # it needed for nn.CrossEntropyLoss
         logits = logits.permute(0, 2, 1)
         return logits
-    
+
     @torch.no_grad()
     def get_next_token_scores(
             self,
@@ -202,14 +205,14 @@ class BiGPTModel(BaseModel):
     ):
         # all parameters be a tuple for two net
         input_left_to_right, input_right_to_left = input_ids
-        
+
         attention_left_to_right, attention_right_to_left = attention_mask
         past_left_to_right, past_right_to_left = past
-        
+
         if past_left_to_right is not None:
             input_left_to_right = input_left_to_right[:, -1].unsqueeze(-1)
-            
-        if past_right_to_left is not None:            
+
+        if past_right_to_left is not None:
             input_right_to_left = input_right_to_left[:, -1].unsqueeze(-1)
 
         # forward left to right model
@@ -217,18 +220,13 @@ class BiGPTModel(BaseModel):
             input_ids=input_left_to_right,
             attention_mask=attention_left_to_right,
             past=past_left_to_right,
-            use_cache=use_cache            
+            use_cache=use_cache
         )
-        
+
         hidden_left_to_right = output_left_to_right[0][:, -1, :]
-        
+
         # forward right to left model        
-        output_right_to_left = self.gpt_right_to_left(
-            input_ids=input_right_to_left,
-            attention_mask=attention_right_to_left,
-            past=past_right_to_left,
-            use_cache=use_cache            
-        )
+        output_right_to_left = self.forward_right_context(input_right_to_left)
         hidden_right_to_left = output_right_to_left[0][:, -1, :]
 
         hidden_states = torch.cat(
@@ -246,5 +244,5 @@ class BiGPTModel(BaseModel):
             new_past = (output_left_to_right[1], None)
         else:
             new_past = (None, None)
-            
+
         return logits, new_past
