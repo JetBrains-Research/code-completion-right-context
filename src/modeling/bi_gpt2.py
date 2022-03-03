@@ -85,7 +85,7 @@ class BiGPTModel(BaseModel):
             self.forward_right_context = partial(run_right_gpt, model=self.gpt_right_to_left)
         elif right_model_type.value == 'EMB':
             self.gpt_right_to_left = nn.Embedding(
-                right_model_config.NUM_EMBEDDDINGS, right_model_config.EMBEDDING_DIM
+                right_model_config.NUM_EMBEDDINGS, right_model_config.EMBEDDING_DIM
             )
             self.forward_right_context = partial(
                 run_right_embedding, wte_model=self.gpt_left_to_right.wte, position_emb=self.gpt_right_to_left
