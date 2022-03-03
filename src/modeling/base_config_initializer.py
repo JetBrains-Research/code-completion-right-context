@@ -111,9 +111,9 @@ class BaseConfigInitializer:
             optimizer_callback = catalyst_callbacks.OptimizerCallback(
                 metric_key="loss",
                 accumulation_steps=config.ACCUMULATION_STEPS,
-                grad_clip_fn="clip_grad_norm_",
+                grad_clip_fn="torch.nn.utils.clip_grad_norm_",
                 grad_clip_params={
-                    "max_norm": config.MAX_NORM,
+                    "max_norm": 10,
                     "norm_type": 2
                 }
             )
