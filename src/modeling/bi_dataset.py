@@ -1,5 +1,3 @@
-import gc
-
 from random import choice
 
 import joblib
@@ -104,7 +102,6 @@ class BiGPTDataset(Dataset):
         right_to_left_tensor = torch.tensor(right_to_left_text).long()
         target_tensor = torch.tensor(target_sequence).long()
 
-        gc.collect()
 
         return {
             'input_tensor': left_to_right_tensor,
