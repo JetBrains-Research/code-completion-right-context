@@ -51,7 +51,7 @@ def wrapper_run_right_embedding(wte_model, position_emb, seq_len=512):
         pos_index = pos_indexes.to(device)  # [seq_len]
         pos_emb = position_emb(pos_index).squeeze(2) * mask.to(device)  # [seq_len, seq_len]
 
-        features = (tokens @ pos_emb) / n_count.to(device)
+        features = ((tokens @ pos_emb) / n_count.to(device)).permute(0, 2, 1)
 
         return torch.flip(features, dims=(1,))
 
