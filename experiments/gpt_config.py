@@ -38,7 +38,7 @@ class Config:
     N_HEADS = 4
     HEAD_SIZE = 128
 
-    RIGHT_MODEL_TYPE = TypeModel.CNN
+    RIGHT_MODEL_TYPE = TypeModel.EMB
     STACK_RIGHT_LEFT_FEATURES: bool = True
     ONE_WPE: bool = False
     ONE_WTE: bool = False

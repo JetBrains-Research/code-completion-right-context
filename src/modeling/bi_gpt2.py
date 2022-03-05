@@ -25,22 +25,37 @@ def run_right_cnn(reverted_input_tensor, model):
     return features
 
 
-def run_right_embedding(reverted_input_tensor, wte_model, position_emb):
-    batch_size = reverted_input_tensor.size(0)
-    seq_len = reverted_input_tensor.size(1)
-    device = reverted_input_tensor.device
+def wrapper_run_right_embedding(wte_model, position_emb, seq_len=512):
+    indexes = list(range(-seq_len + 1, seq_len))
 
-    tokens = wte_model(reverted_input_tensor)
+    pos_ind = [
+        [indexes[1022 - i - j] for i in range(seq_len)]
+        for j in range(seq_len)
+    ]
+    pos_indexes = torch.tensor(pos_ind, dtype=torch.long)
+    pos_indexes[pos_indexes < 0] = 0
 
-    output = torch.zeros(batch_size, seq_len, tokens.size(2))
+    mask_ = [
+        [i <= j for i in range(seq_len)]
+        for j in range(seq_len - 1, -1, -1)
+    ]
+    mask = torch.tensor(mask_, dtype=torch.long)
 
-    seq_len = reverted_input_tensor.size(1)
-    pos_index = torch.arange(seq_len - 1, -1, -1).reshape(1, seq_len).repeat(batch_size, 1)
-    pos_emb = position_emb(pos_index)  # [batch, seq_len, pos_dim]
-    for i in range(seq_len):
-        output[:, i, :] = torch.sum(tokens[:, seq_len-i, :] * pos_emb[:, -seq_len+i:, :], dim=1)
+    n_count = torch.sum(mask, dim=0).unsqueeze(0).unsqueeze(0)
 
-    return torch.flip(output, dims=(1,))
+    def run_right_embedding(reverted_input_tensor):
+        device = reverted_input_tensor.device
+
+        tokens = wte_model(reverted_input_tensor).permute(0, 2, 1)  # [batch, hid_dim, seq_len]
+
+        pos_index = pos_indexes.to(device)  # [seq_len]
+        pos_emb = position_emb(pos_index).squeeze(2) * mask.to(device)  # [seq_len, seq_len]
+
+        features = (tokens @ pos_emb) / n_count.to(device)
+
+        return torch.flip(features, dims=(1,))
+
+    return run_right_embedding
 
 
 class CNN(nn.Module):
@@ -150,8 +165,8 @@ class BiGPTModel(BaseModel):
             self.gpt_right_to_left = nn.Embedding(
                 right_model_config.NUM_EMBEDDINGS, right_model_config.EMBEDDING_DIM
             )
-            self.forward_right_context = partial(
-                run_right_embedding, wte_model=self.gpt_left_to_right.wte, position_emb=self.gpt_right_to_left
+            self.forward_right_context = wrapper_run_right_embedding(
+                wte_model=self.gpt_left_to_right.wte, position_emb=self.gpt_right_to_left
             )
         elif right_model_type.value == 'CNN':
             self.gpt_right_to_left = self.create_right_cnn(right_params, right_model_config)
