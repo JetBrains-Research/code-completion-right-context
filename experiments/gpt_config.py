@@ -13,7 +13,7 @@ from ddp_models import (
 
 class Config:
     # global parameters
-    HOME_DIR = '/content/experiment/EXP'
+    HOME_DIR = '/content/experiment'
     DATA_DIR = '/content/data'
     WANDB_GROUP = 'Rcompletion'
     MODEL_NAME = 'BiGPT-128'
@@ -38,7 +38,7 @@ class Config:
     N_HEADS = 4
     HEAD_SIZE = 128
 
-    RIGHT_MODEL_TYPE = TypeModel.EMB
+    RIGHT_MODEL_TYPE = TypeModel.CNN
     STACK_RIGHT_LEFT_FEATURES: bool = True
     ONE_WPE: bool = False
     ONE_WTE: bool = False
@@ -51,9 +51,9 @@ class Config:
         )
     elif RIGHT_MODEL_TYPE is TypeModel.CNN:
         RIGHT_MODEL_CONFIG = RightCNNConfig(
-            WINDOWS_SIZES=[2, 3, 4, 5],
+            WINDOWS_SIZES=[1, 2, 3, 3, 4, 4, 5, 5],
             DEPTHWISE_CONV=False,
-            PADDING=3,
+            PADDING=4,
         )
     else:
         RIGHT_MODEL_CONFIG = RightEmbeddingConfig()

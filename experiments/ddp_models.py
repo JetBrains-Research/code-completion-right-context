@@ -20,9 +20,9 @@ class RightGPTConfig:
 
 @dataclass
 class RightCNNConfig:
-    WINDOWS_SIZES: List[int] = (2, 3, 4)
+    WINDOWS_SIZES: List[int] = (1, 2, 2, 3, 3, 4, 4, 5)
     DEPTHWISE_CONV: bool = False
-    PADDING: int = 3
+    PADDING: int = 4
 
 
 @dataclass

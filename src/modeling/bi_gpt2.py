@@ -1,10 +1,10 @@
 from copy import deepcopy
-
-from typing import Any, Tuple, Optional, Union
 from functools import partial
+from typing import Any, Tuple, Optional, Union
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import transformers
 
 from ..utils.technical import annotations_from_parent
@@ -20,6 +20,11 @@ def run_right_gpt(reverted_input_tensor, model):
     return right_to_left_reverted_back_output
 
 
+def run_right_cnn(reverted_input_tensor, model):
+    features = model(reverted_input_tensor)
+    return features
+
+
 def run_right_embedding(reverted_input_tensor, wte_model, position_emb):
     tokens = wte_model(reverted_input_tensor)
     seq_len = reverted_input_tensor.size(1)
@@ -27,6 +32,55 @@ def run_right_embedding(reverted_input_tensor, wte_model, position_emb):
     device = next(wte_model.parameters()).device
     position_index = torch.flip(torch.arange(seq_len).reshape(1, seq_len), dims=(1,)).repeat(batch_size, 1)
     return tokens * position_emb(position_index.to(device))
+
+
+class CNN(nn.Module):
+    def __init__(
+            self,
+            vocab_size,
+            embedding_dim,
+            n_filters,
+            filter_sizes,
+            padding=0,
+            dropout=0.3,
+            depthwise=False
+    ):
+        super().__init__()
+
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.convs = nn.ModuleList()
+        for filter_size in filter_sizes:
+            if depthwise:
+                conv = nn.Sequential(
+                    nn.Conv2d(in_channels=1, out_channels=n_filters, kernel_size=1),
+                    nn.Conv2d(
+                        in_channels=n_filters,
+                        out_channels=n_filters,
+                        kernel_size=(filter_size, embedding_dim),
+                        padding=(padding, 0),
+                        groups=n_filters,
+                    )
+                )
+            else:
+                conv = nn.Conv2d(in_channels=1, out_channels=n_filters, kernel_size=(filter_size, embedding_dim))
+            self.convs.append(conv)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        embedded = self.embedding(x)
+        embedded = embedded.unsqueeze(1)
+        many_conved = []
+        for conv in self.convs:
+            many_conved.append(
+                F.relu(self.dropout(conv(embedded)).squeeze(3))
+            )
+        pooled = []
+        for conved in many_conved:
+            pooled.append(
+                F.max_pool1d(conved, conved.shape[2]).squeeze(2)
+            )
+        cat = self.dropout(torch.cat(pooled, dim=1))
+        return cat
 
 
 # TODO: return back annotations
@@ -90,6 +144,9 @@ class BiGPTModel(BaseModel):
             self.forward_right_context = partial(
                 run_right_embedding, wte_model=self.gpt_left_to_right.wte, position_emb=self.gpt_right_to_left
             )
+        elif right_model_type.value == 'CNN':
+            self.gpt_right_to_left = self.create_right_cnn(right_params, right_model_config)
+            self.forward_right_context = partial(run_right_cnn, model=self.gpt_right_to_left)
         else:
             raise ValueError('Strange right model type')
 
@@ -123,6 +180,12 @@ class BiGPTModel(BaseModel):
         if right_model_config.HEAD_SIZE is not None:
             gpt_config['n_embd'] = right_model_config.HEAD_SIZE
         return transformers.GPT2Model(transformers.GPT2Config(**gpt_config))
+
+    @staticmethod
+    def gpt_right_to_left(gpt_config, right_model_config):
+        model = CNN(gpt_config['vocab_size'], gpt_config['n_embd'], 16, [1, 2, 3, 3, 4, 4, 5, 6])
+        return model
+
 
     def forward(
             self,

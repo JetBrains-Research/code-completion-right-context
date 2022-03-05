@@ -1,8 +1,9 @@
 from random import choice
 
 import joblib
-import torch
 import numpy as np
+import torch
+
 from torch.utils.data import Dataset, DataLoader
 
 from .dataset import DatasetLoaderInitializer
@@ -26,7 +27,7 @@ class BiGPTDataset(Dataset):
         text : list of int
             List of token indexes.
             ALl documents are collapsed in a one list.
-        text_list : list of list of int
+        text_list : list of int
             Each element is one document token indexes.
         reshuffle : bool
             If True then shuffle all data after each epoch.
@@ -35,7 +36,7 @@ class BiGPTDataset(Dataset):
             Sequence length.
         batch_first : bool
         use_first_n_objects : int or None
-        right_to_left_model_shift : list, default = None
+        right_to_left_model_shifts : list, default = None
             Shift of the right_to_left model.
         """
         if text is not None and text_list is not None:
@@ -46,7 +47,7 @@ class BiGPTDataset(Dataset):
         if right_to_left_model_shifts is None:
             right_to_left_model_shifts = [2]
 
-        assert isinstance(right_to_left_model_shifts, list)
+        assert isinstance(right_to_left_model_shifts, (list, tuple))
 
         if len(right_to_left_model_shifts) < 0 or any(x < 2 for x in right_to_left_model_shifts):
             raise TypeError(
@@ -101,7 +102,6 @@ class BiGPTDataset(Dataset):
         left_to_right_tensor = torch.tensor(left_to_right_text).long()
         right_to_left_tensor = torch.tensor(right_to_left_text).long()
         target_tensor = torch.tensor(target_sequence).long()
-
 
         return {
             'input_tensor': left_to_right_tensor,
