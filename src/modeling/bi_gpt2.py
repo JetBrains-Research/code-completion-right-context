@@ -182,7 +182,7 @@ class BiGPTModel(BaseModel):
         return transformers.GPT2Model(transformers.GPT2Config(**gpt_config))
 
     @staticmethod
-    def gpt_right_to_left(gpt_config, right_model_config):
+    def create_right_cnn(gpt_config, right_model_config):
         model = CNN(gpt_config['vocab_size'], gpt_config['n_embd'], 16, [1, 2, 3, 3, 4, 4, 5, 6])
         return model
 
