@@ -26,12 +26,21 @@ def run_right_cnn(reverted_input_tensor, model):
 
 
 def run_right_embedding(reverted_input_tensor, wte_model, position_emb):
-    tokens = wte_model(reverted_input_tensor)
-    seq_len = reverted_input_tensor.size(1)
     batch_size = reverted_input_tensor.size(0)
-    device = next(wte_model.parameters()).device
-    position_index = torch.flip(torch.arange(seq_len).reshape(1, seq_len), dims=(1,)).repeat(batch_size, 1)
-    return tokens * position_emb(position_index.to(device))
+    seq_len = reverted_input_tensor.size(1)
+    device = reverted_input_tensor.device
+
+    tokens = wte_model(reverted_input_tensor)
+
+    output = torch.zeros(batch_size, seq_len, tokens.size(2))
+
+    seq_len = reverted_input_tensor.size(1)
+    pos_index = torch.arange(seq_len - 1, -1, -1).reshape(1, seq_len).repeat(batch_size, 1)
+    pos_emb = position_emb(pos_index)  # [batch, seq_len, pos_dim]
+    for i in range(seq_len):
+        output[:, i, :] = torch.sum(tokens[:, seq_len-i, :] * pos_emb[:, -seq_len+i:, :], dim=1)
+
+    return torch.flip(output, dims=(1,))
 
 
 class CNN(nn.Module):
@@ -185,7 +194,6 @@ class BiGPTModel(BaseModel):
     def create_right_cnn(gpt_config, right_model_config):
         model = CNN(gpt_config['vocab_size'], gpt_config['n_embd'], 16, [1, 2, 3, 3, 4, 4, 5, 6])
         return model
-
 
     def forward(
             self,
